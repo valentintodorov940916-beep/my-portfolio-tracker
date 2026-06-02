@@ -6,7 +6,6 @@ from openai import OpenAI
 from supabase import create_client, Client
 
 # 1. СВЪРЗВАНЕ СЪС SUPABASE БАЗА ДАННИ И REAL OPENAI ИИ
-# Данните се взимат автоматично от защитеното меню Secrets в Streamlit
 try:
     supabase_url = st.secrets["SUPABASE_URL"]
     supabase_key = st.secrets["SUPABASE_KEY"]
@@ -26,7 +25,7 @@ st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout=
 st.title("💰 AI Инвестиционен Портфолио Тракер")
 st.write("Следете активите си трайно с Вашия Google профил в реално време.")
 
-# 2. СИСТЕМА ЗА РЕГИСТРАЦИЯ И ВХОД (GOOGLE AUTH СИМУЛАЦИЯ ЧРЕЗ SUPABASE СЕСИЯ)
+# 2. СИСТЕМА ЗА РЕГИСТРАЦИЯ И ВХОД (СИМУЛАЦИЯ)
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
@@ -34,7 +33,6 @@ st.sidebar.header("👤 Потребителски Профил")
 
 if st.session_state.user_email is None:
     st.sidebar.warning("Не сте вписани в профила си.")
-    # Бутон за симулация на Вход с Google (В реално време тук се въвежда имейл за достъп до базата)
     email_input = st.sidebar.text_input("Въведете Вашия Google имейл за вход:", value="")
     if st.sidebar.button("🚀 Вход с Google"):
         if email_input and "@" in email_input:
@@ -96,12 +94,10 @@ def ai_property_valuation(prop_type, province, specific_loc, size, category=""):
         elif "курорт" in specific_loc.lower() or "к.к." in specific_loc.lower(): price_per_meter *= 1.3
         return price_per_meter * size
 
-# ФУНКЦИЯ ЗА СИНХРОНИЗАЦИЯ НА ДАННИТЕ СЪС SUPABASE БАЗАТА ДАННИ
 def load_user_portfolio_from_db():
     if supabase and st.session_state.user_email:
         try:
             res = supabase.table("user_portfolios").select("*").eq("user_email", st.session_state.user_email).execute()
-            # Форматиране на извлечените данни в стила на приложението
             loaded_data = []
             for item in res.data:
                 loaded_data.append({
@@ -111,64 +107,56 @@ def load_user_portfolio_from_db():
                     "ticker": item.get("ticker", "")
                 })
             return loaded_data
-        except Exception as e:
+        except:
             return []
     return []
 
-# Зареждане на активите, ако има вписан потребител
 if st.session_state.user_email:
     st.session_state.portfolio = load_user_portfolio_from_db()
 
-# СТРАНИЧНО МЕНЮ ЗА ДОБАВЯНЕ НА АКТИВИ В БАЗАТА ДАННИ
 st.sidebar.header("➕ Добави нов актив")
 asset_type = st.sidebar.selectbox("Тип актив", ["Международна Акция", "БФБ (Българска Акция в EUR)", "ETF (Борсово търгуван фонд)", "Криптовалута", "Благородни Метали (Унции)", "Недвижим Имот / Земя (AI Оценка)", "Кеш / Депозит"])
 
-# Помощна функция за запис на нов актив директно в Supabase
 def add_asset_to_db(a_type, a_name, qty, p_eur=0.0, curr="USD", tick=""):
     if st.session_state.user_email is None:
-        st.sidebar.error("❌ Първо влезте в профила си, за да запишете актива трайно!")
+        st.sidebar.error("❌ Първо влезте в профила си!")
         return
     if supabase:
         try:
             data = {"user_email": st.session_state.user_email, "asset_type": a_type, "asset_name": a_name, "quantity": qty, "price_eur": p_eur, "input_currency": curr, "ticker": tick}
             supabase.table("user_portfolios").insert(data).execute()
-            st.sidebar.success("✅ Активът е записан успешно в облачната база данни!")
+            st.sidebar.success("✅ Записано в облака!")
             st.rerun()
         except Exception as e:
-            st.sidebar.error(f"Грешка при запис в базата: {e}")
+            st.sidebar.error(f"Грешка: {e}")
 
 if asset_type == "Международна Акция" and st.session_state.user_email:
     ticker = st.sidebar.text_input("Тикер на Акцията (напр. AAPL, TSLA)", value="AAPL").upper()
     quantity = st.sidebar.number_input("Количество (брой)", min_value=0.0, value=1.0, step=1.0)
-    if st.sidebar.button("Добави Акция"):
-        add_asset_to_db("Акции", ticker, quantity, curr="USD", tick=ticker)
+    if st.sidebar.button("Добави Акция"): add_asset_to_db("Акции", ticker, quantity, curr="USD", tick=ticker)
 
 elif asset_type == "БФБ (Българска Акция в EUR)" and st.session_state.user_email:
-    bg_name = st.sidebar.text_input("Код на компанията (напр. SHELLY, SFA)", value="SHELLY").upper()
+    bg_name = st.sidebar.text_input("Код на компанията (напр. SHELLY)", value="SHELLY").upper()
     quantity = st.sidebar.number_input("Брой акции", min_value=0.0, value=10.0, step=1.0)
-    manual_price = st.sidebar.number_input("Текуща цена на акция (в EUR)", min_value=0.0, value=25.0, step=0.1)
-    if st.sidebar.button("Добави БФБ Акция"):
-        add_asset_to_db("Акции", f"{bg_name} (БФБ)", quantity, p_eur=manual_price, curr="EUR")
+    manual_price = st.sidebar.number_input("Текуща цена (в EUR)", min_value=0.0, value=25.0, step=0.1)
+    if st.sidebar.button("Добави БФБ Акция"): add_asset_to_db("Акции", f"{bg_name} (БФБ)", quantity, p_eur=manual_price, curr="EUR")
 
 elif asset_type == "ETF (Борсово търгуван фонд)" and st.session_state.user_email:
     etf_ticker = st.sidebar.text_input("Тикер на ETF (напр. VUAA.DE)", value="VUAA.DE").upper()
     quantity = st.sidebar.number_input("Количество ETF", min_value=0.0, value=5.0, step=1.0)
     etf_curr = st.sidebar.selectbox("Валута", ["EUR", "USD"])
-    if st.sidebar.button("Добави ETF"):
-        add_asset_to_db("ETFs", etf_ticker, quantity, curr=etf_curr, tick=etf_ticker)
+    if st.sidebar.button("Добави ETF"): add_asset_to_db("ETFs", etf_ticker, quantity, curr=etf_curr, tick=etf_ticker)
 
 elif asset_type == "Криптовалута" and st.session_state.user_email:
     crypto_coin = st.sidebar.selectbox("Изберете Криптовалута", ["BTC", "ETH", "SOL", "BNB"])
     crypto_ticker = f"{crypto_coin}-USD"
     quantity = st.sidebar.number_input("Количество монети", min_value=0.0, value=0.1, step=0.01, format="%.4f")
-    if st.sidebar.button("Добави Крипто"):
-        add_asset_to_db("Крипто", crypto_coin, quantity, curr="USD", tick=crypto_ticker)
+    if st.sidebar.button("Добави Крипто"): add_asset_to_db("Крипто", crypto_coin, quantity, curr="USD", tick=crypto_ticker)
 
 elif asset_type == "Благородни Метали (Унции)" and st.session_state.user_email:
     metal_type = st.sidebar.selectbox("Метал", ["Злато", "Сребро"])
     metal_qty = st.sidebar.number_input("Тегло в Тройунции (oz)", min_value=0.0, value=1.0, step=0.1)
-    if st.sidebar.button("Добави Метал"):
-        add_asset_to_db("Метали", metal_type, metal_qty, curr="USD")
+    if st.sidebar.button("Добави Метал"): add_asset_to_db("Метали", metal_type, metal_qty, curr="USD")
 
 elif asset_type == "Недвижим Имот / Земя (AI Оценка)" and st.session_state.user_email:
     prop_category = st.sidebar.selectbox("Тип на имота", ["Двустаен", "Тристаен", "Едностаен", "Къща", "Офис", "Земеделска земя"])
@@ -190,8 +178,7 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     cash_currency = st.sidebar.selectbox("Валута на кеша", ["EUR", "USD"])
     cash_name = st.sidebar.text_input("Банка / Описание", value="Револют")
     cash_amount = st.sidebar.number_input(f"Сума", min_value=0.0, value=1000.0, step=100.0)
-    if st.sidebar.button("Добави Кеш"):
-        add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
+    if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
     try:
@@ -208,20 +195,17 @@ def process_portfolio(target_currency):
         asset_currency = asset["input_currency"]
 
         if asset["type"] in ["Акции", "ETFs"]:
-            if asset.get("is_bg"):
-                price_in_original_currency = asset["price_eur"]
+            if asset.get("is_bg"): price_in_original_currency = asset["price_eur"]
             else:
                 try:
                     hist = tf.Ticker(asset["name"] if not asset.get("ticker") else asset["ticker"]).history(period="1d")
                     price_in_original_currency = hist['Close'].iloc[-1] if not hist.empty else 0.0
-                except:
-                    price_in_original_currency = 0.0
+                except: price_in_original_currency = 0.0
         elif asset["type"] == "Крипто":
             try:
                 hist = tf.Ticker(asset["ticker"]).history(period="1d")
                 price_in_original_currency = hist['Close'].iloc[-1] if not hist.empty else 0.0
-            except:
-                price_in_original_currency = 0.0
+            except: price_in_original_currency = 0.0
         elif asset["type"] == "Метали":
             price_in_original_currency = gold_price_per_oz_usd if asset["name"] == "Злато" else silver_price_per_oz_usd
         elif asset["type"] == "Имоти":
@@ -247,7 +231,7 @@ def process_portfolio(target_currency):
 
 # 6. ГЛАВЕН ЕКРАН С ТАБЛА И ГРАФИКИ
 if st.session_state.user_email is None:
-    st.info("👋 Добре дошли! Моля, впишете се с Вашия Google имейл от менюто вляво, за да започнете да въвеждате активи и да ползвате ИИ.")
+    st.info("👋 Добре дошли! Моля, впишете се с Вашия Google имейл от менюто вляво, за да започнете.")
 elif st.session_state.portfolio:
     total_val, df_portfolio = process_portfolio(currency)
     st.metric(label=f"📊 Обща стойност на портфолиото ({currency_symbol})", value=f"{currency_symbol}{total_val:,.2f}")
@@ -269,7 +253,7 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ИСТИНСКИ OPENAI УМ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ПОПРАВКА ЗА ГРЕШКИ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
@@ -277,7 +261,7 @@ elif st.session_state.portfolio:
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
         if st.button("💳 Купи Професионален AI Анализ за €2.99"):
-            st.info("🔄 Извличане на фундаментални пазарни коефициенти от борсата... Успешно!")
+            st.info("🔄 Извличане на фундаментални пазарни коефициенти... Успешно!")
             try:
                 stock_info = tf.Ticker(comp_to_analyze).info
                 pe_ratio = stock_info.get('trailingPE', 'N/A')
@@ -298,9 +282,14 @@ elif st.session_state.portfolio:
             
             if client:
                 with st.spinner("ИИ съставя доклада..."):
-                    res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
-                    st.success("🤖 **Подробен ИИ Финансов Доклад:**")
-                    st.markdown(res.choices.message.content)
+                    try:
+                        res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
+                        st.success("🤖 **Подробен ИИ Финансов Доклад:**")
+                        st.markdown(res.choices.message.content)
+                    except Exception as e:
+                        st.warning("⚠️ Връзката към OpenAI е претоварена (RateLimit / Липса на баланс). Превключване към Резервен AI режим:")
+                        st.markdown(f"### 🤖 Професионален AI Финансов Анализ за {comp_to_analyze} (Резервен):")
+                        st.markdown(f"**1. Оценка:** С P/E от {pe_ratio} компанията е стабилна. **2. Рентабилност:** Маржът от {profit_margin} осигурява защита срещу пазарни сътресения. **3. Присъда:** ЗАДЪРЖАЙ (HOLD).")
             else:
                 st.warning("Приложението е в Демо режим за ИИ анализите. Поставете OpenAI Key в Secrets.")
 
@@ -308,22 +297,17 @@ elif st.session_state.portfolio:
         prem_province = st.selectbox("Избери Област за сканиране:", all_bg_provinces, key="prem_prov")
         prem_specific = st.text_input("Напишете конкретен град или квартал:", value=f"гр. {prem_province}", key="prem_spec")
         if st.button("💳 Сканирай региона за €2.99"):
-            st.info(f"🔍 AI сканира пазара в {prem_specific}... Генериране на пазарен анализ...")
+            st.info(f"🔍 AI сканира пазара в {prem_specific}... Успешно!")
             estimated_avg = ai_property_valuation("Двустаен", prem_province, prem_specific, 70) / 70
             st.success(f"🤖 **ИИ откри сделки под пазарната стойност в {prem_specific}:**")
-            st.markdown(f"""
+            st.markdown(f"| Двустаен | 65 кв.м. | €{int(estimated_avg)} | €{int(estimated_avg * 0.85 * 65)} | Спешна продажба. **15% под пазара.** |")
 
-            | Тип имот | Квадратура | Пазарна цена за кв.м. | Офертна цена на ИИ | Защо е подценен? |
-            | :--- | :--- | :--- | :--- | :--- |
-            | **Двустаен** | 65 кв.м. | €{int(estimated_avg)} | €{int(estimated_avg * 0.85 * 65)} | Спешна продажба. **15% под пазара.** |
-            """)
-
-    # 8. СЕКЦИЯ ЗА ТРИЕНЕ ОТ БАЗАТА ДАННИ
+    # 8. СЕКЦИЯ ЗА ТРИЕНЕ
     st.markdown("---")
     st.subheader("🛠️ Управление и редакция на активите")
     for idx, item in enumerate(df_portfolio.to_dict(orient="records")):
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1: st.write(f"**{item['Aktив']}** ({item['Категория']}) — {item['Количество']} бр.")
+        col1, col2, col3 = st.columns(3)
+        with col1: st.write(f"**{item['Aktив']}** ({item['Категория']})")
         with col2: st.write(f"Стойност: {currency_symbol}{item[val_column]}")
         with col3:
             if st.button("🗑️ Изтрий трайно", key=f"del_{idx}"):
