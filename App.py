@@ -132,7 +132,6 @@ elif asset_type == "Кеш / Депозит":
         st.session_state.portfolio.append({"type": "Кеш", "name": f"{cash_name} ({cash_currency})", "qty": cash_amount, "input_currency": cash_currency})
         st.success(f"Добавено: {cash_amount} {cash_currency} към {cash_name}")
         st.rerun()
-
 # 5. ИЗЧИСЛЯВАНЕ НА ТЕКУЩИТЕ ПАЗАРНИ ЦЕНИ В СЪОТВЕТНАТА ВАЛУТА
 def process_portfolio(target_currency):
     try:
@@ -191,9 +190,66 @@ def process_portfolio(target_currency):
         processed.append({
             "id": idx,
             "Категория": asset["type"],
-            "Актив": asset["name"],
+            "Aktив": asset["name"],
             "Количество": asset["qty"],
-f"Стойност ({currency_symbol})": round(val_final, 2),"Ед. Цена": round(price_final, 2)})return total_display_value, pd.DataFrame(processed)6. ГЛАВЕН ЕКРАН С ТАБЛА И ГРАФИКИ "ПИЦА"if st.session_state.portfolio:total_val, df_portfolio = process_portfolio(currency)st.metric(label=f"📊 Обща стойност на портфолиото ({currency_symbol})", value=f"{currency_symbol}{total_val:,.2f}")st.caption(f"Текущ обменен курс: 1 EUR = {eur_to_usd:.4f} USD")st.subheader("🍕 Общо разпределение на активите")val_column = f"Стойност ({currency_symbol})"df_main_pie = df_portfolio.groupby("Категория")[val_column].sum().reset_index()fig_main = px.pie(df_main_pie, values=val_column, names="Категория", hole=0.4, title="Портфолио по класове активи")st.plotly_chart(fig_main, use_container_width=True)st.markdown("---")st.subheader("🔍 Детайлен преглед на категориите")available_categories = df_portfolio["Категория"].unique()tabs = st.tabs(list(available_categories))for index, cat_name in enumerate(available_categories):with tabs[index]:st.write(f"### Вътрешно разпределение за клас: {cat_name}")df_sub = df_portfolio[df_portfolio["Категория"] == cat_name]fig_sub = px.pie(df_sub, values=val_column, names="Актив", hole=0.3, title=f"Активи в сектор {cat_name}")st.plotly_chart(fig_sub, use_container_width=True)st.dataframe(df_sub[["Актив", "Количество", "Ед. Цена", val_column]], use_container_width=True)# 7. СЕКЦИЯ ЗА ИНДИВИДУАЛНА КОРЕКЦИЯ И ИЗТРИВАНЕst.markdown("---")st.subheader("🛠️ Управление и редакция на активите")st.write("Променете количеството или изтрийте отделна позиция веднага:")for idx, item in enumerate(st.session_state.portfolio):col1, col2, col3, col4 = st.columns(4)with col1:st.write(f"{item['name']} ({item['type']})")with col2:step_val = 0.0001 if item['type'] == 'Крипто' else 0.1new_qty = st.number_input(f"Количество", min_value=0.0, value=float(item['qty']), step=step_val, format="%.4f" if item['type'] == 'Крипто' else "%.1f", key=f"edit_qty_{idx}")if new_qty != item['qty']:st.session_state.portfolio[idx]['qty'] = new_qtyst.rerun()with col3:st.write(f"Текущо: {item['qty']}")with col4:if st.button("🗑️", key=f"del_{idx}"):st.session_state.portfolio.pop(idx)st.rerun()if st.button("❌ Изчисти цялото портфолио"):st.session_state.portfolio = []st.rerun()else:st.info("Портфолиото ви е празно. Добавете активи от страничното меню.")
+            f"Стойност ({currency_symbol})": round(val_final, 2),
+            "Ед. Цена": round(price_final, 2)
+        })
+    return total_display_value, pd.DataFrame(processed)
+
+# 6. ГЛАВЕН ЕКРАН С ТАБЛА И ГРАФИКИ "ПИЦА"
+if st.session_state.portfolio:
+    total_val, df_portfolio = process_portfolio(currency)
+    st.metric(label=f"📊 Обща стойност на портфолиото ({currency_symbol})", value=f"{currency_symbol}{total_val:,.2f}")
+    st.caption(f"Текущ обменен курс: 1 EUR = {eur_to_usd:.4f} USD")
+    
+    st.subheader("🍕 Общо разпределение на активите")
+    val_column = f"Стойност ({currency_symbol})"
+    df_main_pie = df_portfolio.groupby("Категория")[val_column].sum().reset_index()
+    fig_main = px.pie(df_main_pie, values=val_column, names="Категория", hole=0.4, title="Портфолио по класове активи")
+    st.plotly_chart(fig_main, use_container_width=True)
+    
+    st.markdown("---")
+    st.subheader("🔍 Детайлен преглед на категориите")
+    available_categories = df_portfolio["Категория"].unique()
+    tabs = st.tabs(list(available_categories))
+    
+    for index, cat_name in enumerate(available_categories):
+        with tabs[index]:
+            st.write(f"### Вътрешно разпределение за клас: **{cat_name}**")
+            df_sub = df_portfolio[df_portfolio["Категория"] == cat_name]
+            fig_sub = px.pie(df_sub, values=val_column, names="Aktив", hole=0.3, title=f"Активи в сектор {cat_name}")
+            st.plotly_chart(fig_sub, use_container_width=True)
+            st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
+
+    # 7. СЕКЦИЯ ЗА ИНДИВИДУАЛНА КОРЕКЦИЯ И ИЗТРИВАНЕ
+    st.markdown("---")
+    st.subheader("🛠️ Управление и редакция на активите")
+    st.write("Променете количеството или изтрийте отделна позиция веднага:")
+
+    for idx, item in enumerate(st.session_state.portfolio):
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.write(f"**{item['name']}** ({item['type']})")
+        with col2:
+            step_val = 0.0001 if item['type'] == 'Крипто' else 0.1
+            new_qty = st.number_input(f"Количество", min_value=0.0, value=float(item['qty']), step=step_val, format="%.4f" if item['type'] == 'Крипто' else "%.1f", key=f"edit_qty_{idx}")
+            if new_qty != item['qty']:
+                st.session_state.portfolio[idx]['qty'] = new_qty
+                st.rerun()
+        with col3:
+            st.write(f"Текущо: {item['qty']}")
+        with col4:
+            if st.button("🗑️", key=f"del_{idx}"):
+                st.session_state.portfolio.pop(idx)
+                st.rerun()
+
+    if st.button("❌ Изчисти цялото портфолио"):
+        st.session_state.portfolio = []
+        st.rerun()
+else:
+    st.info("Портфолиото ви е празно. Добавете активи от страничното меню.")
+
 
 
 
