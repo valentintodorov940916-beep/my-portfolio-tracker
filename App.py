@@ -70,11 +70,12 @@ elif asset_type == "Кеш / Депозит":
 
 # ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
+    # Точно взимане на спот цените за 1 унция директно чрез фючърсните пазари (в USD)
     try:
-        gold_price_per_oz_usd = tf.Ticker("GLD").history(period="1d")['Close'].iloc[-1] * 10
-        silver_price_per_oz_usd = tf.Ticker("SLV").history(period="1d")['Close'].iloc[-1] * 5
+        gold_price_per_oz_usd = tf.Ticker("GC=F").history(period="1d")['Close'].iloc[-1]
+        silver_price_per_oz_usd = tf.Ticker("SI=F").history(period="1d")['Close'].iloc[-1]
     except:
-        gold_price_per_oz_usd, silver_price_per_oz_usd = 2300.0, 28.0
+        gold_price_per_oz_usd, silver_price_per_oz_usd = 2350.0, 29.50 # Резервни пазарни котировки при срив
 
     processed = []
     total_display_value = 0.0
@@ -157,18 +158,16 @@ if st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Актив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # НОВА СЕКЦИЯ: РЕДАКТИРАНЕ И ТРИЕНЕ НА ИНДИВИДУАЛНИ ПОЗИЦИИ
+    # Управление на активите
     st.markdown("---")
     st.subheader("🛠️ Управление и редакция на активите")
     st.write("Променете количеството или изтрийте отделна позиция без рестартиране:")
 
     for idx, item in enumerate(st.session_state.portfolio):
-        # Създаваме ред с бутони за всеки актив
-        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+        col1, col2, col3, col4 = st.columns()
         with col1:
             st.write(f"**{item['name']}** ({item['type']})")
         with col2:
-            # Поле за директна промяна на бройката
             new_qty = st.number_input(f"Количество", min_value=0.0, value=float(item['qty']), step=0.1, key=f"edit_qty_{idx}")
             if new_qty != item['qty']:
                 st.session_state.portfolio[idx]['qty'] = new_qty
@@ -176,7 +175,6 @@ if st.session_state.portfolio:
         with col3:
             st.write(f"Текущо: {item['qty']}")
         with col4:
-            # Бутон за изтриване само на този ред
             if st.button("🗑️", key=f"del_{idx}"):
                 st.session_state.portfolio.pop(idx)
                 st.rerun()
@@ -186,6 +184,7 @@ if st.session_state.portfolio:
         st.rerun()
 else:
     st.info("Портфолиото ви е празно. Добавете активи от страничното меню.")
+
 
 
 
