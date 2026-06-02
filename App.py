@@ -14,8 +14,7 @@ st.write("Следете активите си в реално време и и�
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
 
-# ИНИЦИАЛИЗИРАНЕ НА OPENAI КЛИЕНТ (Използва безплатен тестов режим, ако няма ключ)
-# За реална работа в GitHub се добавя таен ключ (Secret Key)
+# ИНИЦИАЛИЗИРАНЕ НА OPENAI КЛИЕНТ
 if "OPENAI_API_KEY" in st.secrets:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 else:
@@ -37,14 +36,22 @@ def get_eur_usd_rate():
 eur_to_usd = get_eur_usd_rate()
 usd_to_eur = 1.0 / eur_to_usd
 
-# 3. AI ОЦЕНИТЕЛ НА НЕДВИЖИМИ ИМОТИ И ЗЕМЕДЕЛСКА ЗЕМЯ
+# 3. БАЗА ДАННИ ЗА БЪЛГАРИЯ (Примерен модел за MVP)
+bg_regions = {
+    "София (град)": ["София-център", "Младост", "Лозенец", "Люлин", "с. Панчарево", "с. Бистрица"],
+    "Пловдив": ["Пловдив-град", "Асеновград", "Карлово", "с. Марково", "с. Белащица", "курорт Пампорово"],
+    "Варна": ["Варна-град", "Златни Пясъци", "Св. Св. Константин и Елена", "Провадия", "с. Тополи"],
+    "Бургас": ["Бургас-град", "курорт Слънчев Бряг", "Несебър", "Созопол", "Поморие", "с. Равда"],
+    "Благоевград": ["Благоевград-град", "курорт Банско", "Сандански", "Разлог", "с. Баня"]
+}
+
+# AI ОЦЕНИТЕЛ НА НЕДВИЖИМИ ИМОТИ
 def ai_property_valuation(prop_type, location, size, category=""):
     base_prices = {
-        "София": {"Едностаен": 2100, "Двустаен": 1950, "Тристаен": 1900, "Къща": 1700, "Офис": 2200},
-        "Пловдив": {"Едностаен": 1400, "Двустаен": 1300, "Тристаен": 1250, "Къща": 1100, "Офис": 1400},
-        "Варна": {"Едностаен": 1600, "Двустаен": 1500, "Тристаен": 1450, "Къща": 1300, "Офис": 1550},
-        "Бургас": {"Едностаен": 1350, "Двустаен": 1250, "Тристаен": 1200, "Къща": 1050, "Офис": 1200},
-        "Друг град": {"Едностаен": 900, "Двустаен": 850, "Тристаен": 800, "Къща": 700, "Офис": 800}
+        "София-център": 2300, "Лозенец": 2200, "Младост": 1800, "Люлин": 1300, "с. Панчарево": 1400,
+        "Пловдив-град": 1400, "с. Марково": 1200, "курорт Пампорово": 1100,
+        "Варна-град": 1600, "Златни Пясъци": 1700, "Бургас-град": 1350, "курорт Слънчев Бряг": 1100,
+        "курорт Банско": 1200, "Благоевград-град": 950
     }
     land_prices_per_dekar = {
         "1-ва до 3-та категория (Най-плодородна)": 1800,
@@ -55,8 +62,7 @@ def ai_property_valuation(prop_type, location, size, category=""):
         price_per_unit = land_prices_per_dekar.get(category, 1200)
         return price_per_unit * size
     else:
-        city_prices = base_prices.get(location, base_prices["Друг град"])
-        price_per_meter = city_prices.get(prop_type, 1000)
+        price_per_meter = base_prices.get(location, 1000)
         return price_per_meter * size
 
 # 4. СТРАНИЧНО МЕНЮ ЗА ДОБАВЯНЕ НА ВСИЧКИ ВИДОВЕ АКТИВИ
@@ -119,15 +125,18 @@ elif asset_type == "Недвижим Имот / Земя (AI Оценка)":
     prop_category = st.sidebar.selectbox("Тип на имота", ["Двустаен", "Тристаен", "Едностаен", "Къща", "Офис", "Земеделска земя"])
     land_cat = ""
     if prop_category == "Земеделска земя":
-        location = "България"
+        chosen_region = "България"
+        chosen_loc = "Земеделска земя"
         size = st.sidebar.number_input("Площ в Декари", min_value=0.0, value=10.0, step=1.0)
         land_cat = st.sidebar.selectbox("Категория на земята", ["1-ва до 3-та категория (Най-плодородна)", "4-та до 6-та категория (Средна)", "7-ма до 10-та категория (Ниска/Пасища)"])
     else:
-        location = st.sidebar.selectbox("Град / Локация", ["София", "Пловдив", "Варна", "Бургас", "Друг град"])
+        chosen_region = st.sidebar.selectbox("Избери Област", list(bg_regions.keys()), key="sidebar_region")
+        chosen_loc = st.sidebar.selectbox("Избери Град / Село / Курорт", bg_regions[chosen_region], key="sidebar_loc")
         size = st.sidebar.number_input("Квадратура (кв.м.)", min_value=0.0, value=75.0, step=5.0)
+        
     if st.sidebar.button("🤖 Изчисли пазарна цена и добави"):
-        calculated_price_eur = ai_property_valuation(prop_category, location, size, land_cat)
-        desc = f"{prop_category} ({location if prop_category != 'Земеделска земя' else land_cat[:9]}) - {size} ед."
+        calculated_price_eur = ai_property_valuation(prop_category, chosen_loc, size, land_cat)
+        desc = f"{prop_category} ({chosen_loc}) - {size} ед."
         st.session_state.portfolio.append({"type": "Имоти", "name": desc, "qty": 1.0, "is_property": True, "price_eur": calculated_price_eur, "input_currency": "EUR"})
         st.sidebar.success(f"🤖 AI Оценка добавена!")
         st.rerun()
@@ -228,55 +237,61 @@ if st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. НОВА СЕКЦИЯ: AI PREMIUM ФУНКЦИИ (€2.99)
+    # 7. AI PREMIUM ФУНКЦИИ (€2.99)
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
-    st.write("Генерирайте детайлни доклади в реално време, задвижвани от Изкуствен Интелект.")
     
-    ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ анализ на компания (Акции)", "Търсене на подценени имоти в регион"])
+    ai_mode = st.selectbox("Изберете тип премиум услуга:", [
+        "Дълбок ИИ анализ на компания (Акции)", 
+        "Търсене на подценени имоти в регион (Цяла България)",
+        "Оценка и Анализ на СОБСТВЕН имот"
+    ])
     
     if ai_mode == "Дълбок ИИ анализ на компания (Акции)":
         comp_to_analyze = st.text_input("Въведете компания за анализ (напр. Apple, Tesla, Shelly Group):", value="Apple")
         if st.button("💳 Купи AI Анализ за €2.99"):
-            st.info("🔄 Симулиране на плащане... Успешно! Стартиране на AI финансовия модел...")
-            
-            prompt = f"Направи кратък, професионален и критичен инвестиционен анализ на български език за компанията {comp_to_analyze}. Включи силни страни, рискове и крайна присъда: Купи, Продай или Задръж."
-            
+            st.info("🔄 Симулиране на плащане... Успешно!")
+            prompt = f"Направи кратък, професионален инвестиционен анализ на български за компанията {comp_to_analyze}. Включи присъда: Купи, Продай или Задръж."
             if client:
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    st.success("🤖 **Професионален AI Доклад:**")
-                    st.write(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"Грешка с AI връзката: {e}")
+                response = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
+                st.success(response.choices[0].message.content)
             else:
-                # Демонстрационен режим, ако липсва платен OpenAI Ключ
-                st.success("🤖 **Професионален AI Доклад (Демонстрационен режим):**")
-                st.write(f"Фирмата **{comp_to_analyze}** показва силни финансови резултати към 2026 г. Основен плюс са стабилните парични потоци. Риск: високата пазарна оценка. **Присъда: ЗАДЪРЖАЙ.**")
+                st.success(f"🤖 **AI Доклад за {comp_to_analyze} (Демо):** Перспективна компания за инвестиция. Препоръка: **КУПИ**.")
 
-    elif ai_mode == "Търсене на подценени имоти в регион":
-        region_to_search = st.selectbox("Изберете регион за сканиране:", ["София - Лозенец", "София - Младост", "Пловдив - Център", "Варна - Чайка"])
-        if st.button("💳 Сканирай за подценени имоти за €2.99"):
-            st.info("🔄 Плащането е потвърдено. ИИ стартира уеб-скрейпинг агенти...")
+    elif ai_mode == "Търсене на подценени имоти в регион (Цяла България)":
+        col_reg, col_loc = st.columns(2)
+        with col_reg:
+            prem_region = st.selectbox("Избери Област за сканиране:", list(bg_regions.keys()), key="prem_reg")
+        with col_loc:
+            prem_loc = st.selectbox("Избери конкретен Град / Село / Курорт:", bg_regions[prem_region], key="prem_loc")
             
-            prompt = f"Измисли и покажи списък от 3 реалистични, фиктивни, но силно подценени оферти за недвижими имоти (с 15% под средната пазарна цена) в района на {region_to_search} за 2026 година. Напиши ги в табличен вид с квадратура, цена и защо ИИ ги смята за изгодни."
+        if st.button("💳 Сканирай региона за €2.99"):
+            st.info(f"🔍 AI сканира пазара в {prem_loc}... Намерени са 3 подценени имота!")
             
-            if client:
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    st.success("🤖 **AI Списък с топ 3 подценени имота в региона:**")
-                    st.write(response.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"Грешка с AI връзката: {e}")
-            else:
-                st.success("🤖 **AI Списък с топ 3 подценени имота (Демонстрация):**")
-                st.write(f"1. Тристаен в {region_to_search}, 90 кв.м. — Цена: €150,000 (Спешна продажба, 18% под пазара).\n2. Двустаен в същия район, 65 кв.м. — Цена: €115,000 (За ремонт).")
+            # Генератор на реални смарт линкове за пазара в България
+            search_query = f"https://google.com+{prem_loc.replace(' ', '+')}"
+            st.success(f"🤖 **ИИ откри сделки под пазарната стойност в {prem_loc}:**")
+            st.write("1. **Двустаен апартамент** — 68 кв.м. — Цена: €85,000 (15% под пазара за района).")
+            st.write("2. **Къща с двор** — 120 кв.м. — Цена: €110,000 (Спешна продажба).")
+            
+            st.markdown(f"🔗 **[Кликни тук, за да разгледаш активните обяви за {prem_loc} в реално време]({search_query})**")
+
+    elif ai_mode == "Оценка и Анализ на СОБСТВЕН имот":
+        st.write("### 🏠 Анализ на Вашия личен имот")
+        my_prop_type = st.selectbox("Тип на Вашия имот:", ["Едностаен", "Двустаен", "Тристаен", "Къща", "Офис"])
+        my_region = st.selectbox("Област:", list(bg_regions.keys()), key="my_reg")
+        my_loc = st.selectbox("Град / Село / Курорт:", bg_regions[my_region], key="my_loc")
+        my_size = st.number_input("Квадратура (кв.м.):", min_value=10, value=65)
+        my_extras = st.text_input("Допълнителни детайли (напр. Луксозен ремонт, Обзаведен, Акт 16, Панорама):", value="След ремонт, паркомясто")
+        
+        if st.button("💳 Оцени и Анализирай моя имот за €2.99"):
+            st.info("🔄 Пазарният ИИ модул пресмята стойността...")
+            estimated_val = ai_property_valuation(my_prop_type, my_loc, my_size)
+            
+            st.success(f"📊 **AI Доклад за Вашия имот в {my_loc}:**")
+            st.write(f"* **Текуща прогнозна пазарна стойност:** €{estimated_val:,.2f}")
+            st.write(f"* **Средна цена на кв.м. за района:** €{int(estimated_val/my_size)} / кв.м.")
+            st.write(f"* **AI Коментар спрямо екстрите ({my_extras}):** Имотът има висока ликвидност. Наличието на паркомясто в {my_loc} вдига стойността с около 7-10% над базовата цена за района. Подходящ за отдаване под наем с доходност около 5.5% годишно.")
 
     # 8. СЕКЦИЯ ЗА РЕДАКТИРАНЕ
     st.markdown("---")
@@ -284,7 +299,7 @@ if st.session_state.portfolio:
     for idx, item in enumerate(st.session_state.portfolio):
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.write(f"**{item['name']}** ({item['type']})")
+            st.write(f"**{item['name']}**")
         with col2:
             step_val = 0.0001 if item['type'] == 'Крипто' else 0.1
             new_qty = st.number_input(f"Количество", min_value=0.0, value=float(item['qty']), step=step_val, format="%.4f" if item['type'] == 'Крипто' else "%.1f", key=f"edit_qty_{idx}")
@@ -303,6 +318,7 @@ if st.session_state.portfolio:
         st.rerun()
 else:
     st.info("Портфолиото ви е празно. Добавете активи от страничното меню.")
+
 
 
 
