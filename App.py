@@ -13,98 +13,142 @@ st.write("Следете активите си на нива и категори
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
 
-# Меню за въвеждане вляво
+# МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА
+st.sidebar.header("⚙️ Валута на Портфолиото")
+currency = st.sidebar.radio("Изберете основна валута:", ["EUR (€)", "USD ($)"])
+currency_symbol = "€" if "EUR" in currency else "$"
+
+# Бутон за вземане на курса USD/EUR в реално време
+@st.cache_data(ttl=3600)  # Кешира курса за 1 час, за да не бави приложението
+def get_eur_usd_rate():
+    try:
+        # Използваме валутната двойка EURUSD=X от Yahoo Finance
+        rate = tf.Ticker("EURUSD=X").history(period="1d")['Close'].iloc[-1]
+        return rate # 1 EUR = X USD
+    except:
+        return 1.08 # Резервен курс при срив на API
+
+eur_to_usd = get_eur_usd_rate()
+usd_to_eur = 1.0 / eur_to_usd
+
+# МЕНЮ ЗА ВЪВЕЖДАНЕ НА АКТИВИ
 st.sidebar.header("➕ Добави нов актив")
-asset_type = st.sidebar.selectbox("Тип актив", ["Международна Акция / ETF", "БФБ (Българска Акция)", "Благородни Метали", "Кеш / Депозит"])
+asset_type = st.sidebar.selectbox("Тип актив", ["Международна Акция / ETF", "БФБ (Българска Акция в EUR)", "Благородни Метали (Унции)", "Кеш / Депозит"])
 
 if asset_type == "Международна Акция / ETF":
     ticker = st.sidebar.text_input("Тикер (напр. AAPL, TSLA, 3CP.F)", value="AAPL").upper()
     quantity = st.sidebar.number_input("Количество (брой)", min_value=0.0, value=1.0, step=1.0)
     if st.sidebar.button("Добави Акция"):
-        st.session_state.portfolio.append({"type": "Акции", "name": ticker, "qty": quantity, "is_bg": False})
+        st.session_state.portfolio.append({"type": "Акции", "name": ticker, "qty": quantity, "is_bg": False, "input_currency": "USD"})
         st.success(f"Добавено: {quantity} бр. от {ticker}")
 
-elif asset_type == "БФБ (Българска Акция)":
-    bg_name = st.sidebar.text_input("Име/Код на компанията (напр. SFA, SGH)", value="SHELLY")
+elif asset_type == "БФБ (Българска Акция в EUR)":
+    bg_name = st.sidebar.text_input("Име/Код на компанията (напр. SHELLY, SFA)", value="SHELLY").upper()
     quantity = st.sidebar.number_input("Брой акции", min_value=0.0, value=10.0, step=1.0)
-    manual_price = st.sidebar.number_input("Текуща цена на акция (в лв.)", min_value=0.0, value=50.0, step=0.1)
+    manual_price = st.sidebar.number_input("Текуща цена на акция (в EUR)", min_value=0.0, value=25.0, step=0.1)
     if st.sidebar.button("Добави БФБ Акция"):
-        st.session_state.portfolio.append({"type": "Акции", "name": f"{bg_name} (БФБ)", "qty": quantity, "is_bg": True, "price": manual_price / 1.80}) # Конвертиране в USD за баланс
+        st.session_state.portfolio.append({"type": "Акции", "name": f"{bg_name} (БФБ)", "qty": quantity, "is_bg": True, "price_eur": manual_price, "input_currency": "EUR"})
         st.success(f"Добавено: {quantity} бр. от {bg_name}")
 
-elif asset_type == "Благородни Метали":
+elif asset_type == "Благородни Метали (Унции)":
     metal_type = st.sidebar.selectbox("Метал", ["Злато", "Сребро"])
-    metal_qty = st.sidebar.number_input("Тегло в грамове", min_value=0.0, value=10.0, step=1.0)
+    metal_qty = st.sidebar.number_input("Тегло в Тройунции (oz)", min_value=0.0, value=1.0, step=0.1)
     if st.sidebar.button("Добави Метал"):
-        st.session_state.portfolio.append({"type": "Метали", "name": metal_type, "qty": metal_qty})
-        st.success(f"Добавено: {metal_qty} гр. {metal_type}")
+        st.session_state.portfolio.append({"type": "Метали", "name": metal_type, "qty": metal_qty, "input_currency": "USD"})
+        st.success(f"Добавено: {metal_qty} oz {metal_type}")
 
 elif asset_type == "Кеш / Депозит":
-    cash_name = st.sidebar.text_input("Банка / Валута (напр. ОББ, Револют)", value="Кеш USD")
-    cash_amount = st.sidebar.number_input("Сума (в USD)", min_value=0.0, value=1000.0, step=100.0)
+    cash_currency = st.sidebar.selectbox("Валута на кеша", ["EUR", "USD"])
+    cash_name = st.sidebar.text_input("Банка / Описание", value="Револют")
+    cash_amount = st.sidebar.number_input(f"Сума (в {cash_currency})", min_value=0.0, value=1000.0, step=100.0)
     if st.sidebar.button("Добави Кеш"):
-        st.session_state.portfolio.append({"type": "Кеш", "name": cash_name, "qty": cash_amount})
-        st.success(f"Добавено: ${cash_amount} към {cash_name}")
+        st.session_state.portfolio.append({"type": "Кеш", "name": f"{cash_name} ({cash_currency})", "qty": cash_amount, "input_currency": cash_currency})
+        st.success(f"Добавено: {cash_amount} {cash_currency} към {cash_name}")
 
-# Извличане на цени
-def process_portfolio():
+# ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
+def process_portfolio(target_currency):
+    # Вземане на цените на металите за 1 унция (директно от пазара в USD)
     try:
-        gold_oz = tf.Ticker("GLD").history(period="1d")['Close'].iloc[-1]
-        silver_oz = tf.Ticker("SLV").history(period="1d")['Close'].iloc[-1]
-        gold_gram = (gold_oz / 31.1035) * 10
-        silver_gram = (silver_oz / 31.1035) * 10
+        gold_price_per_oz_usd = tf.Ticker("GLD").history(period="1d")['Close'].iloc[-1] * 10  # Приблизително изравняване на ETF към спот цена
+        silver_price_per_oz_usd = tf.Ticker("SLV").history(period="1d")['Close'].iloc[-1] * 5
     except:
-        gold_gram, silver_gram = 75.0, 1.0
+        gold_price_per_oz_usd, silver_price_per_oz_usd = 2300.0, 28.0 # Резервни цени
 
     processed = []
-    total_usd = 0.0
+    total_display_value = 0.0
 
     for asset in st.session_state.portfolio:
-        price = 0.0
+        price_in_original_currency = 0.0
+        asset_currency = asset["input_currency"]
+
+        # 1. Определяне на единичната цена в оригиналната валута на актива
         if asset["type"] == "Акции":
             if asset.get("is_bg"):
-                price = asset["price"]
+                price_in_original_currency = asset["price_eur"]
             else:
                 try:
                     hist = tf.Ticker(asset["name"]).history(period="1d")
-                    price = hist['Close'].iloc[-1] if not hist.empty else 0.0
+                    price_in_original_currency = hist['Close'].iloc[-1] if not hist.empty else 0.0
                 except:
-                    price = 0.0
+                    price_in_original_currency = 0.0
+                    
         elif asset["type"] == "Метали":
-            price = gold_gram if asset["name"] == "Злато" else silver_gram
+            price_in_original_currency = gold_price_per_oz_usd if asset["name"] == "Злато" else silver_price_per_oz_usd
+            
         elif asset["type"] == "Кеш":
-            price = 1.0
+            price_in_original_currency = 1.0
 
-        val = price * asset["qty"]
-        total_usd += val
+        # Стойност на позицията в оригиналната и валута
+        val_original = price_in_original_currency * asset["qty"]
+
+        # 2. Конвертиране към финалната избрана от потребителя валута (EUR или USD)
+        if target_currency == "USD ($)":
+            if asset_currency == "EUR":
+                val_final = val_original * eur_to_usd
+                price_final = price_in_original_currency * eur_to_usd
+            else:
+                val_final = val_original
+                price_final = price_in_original_currency
+        else: # Ако потребителят е избрал EUR (€)
+            if asset_currency == "USD":
+                val_final = val_original * usd_to_eur
+                price_final = price_in_original_currency * usd_to_eur
+            else:
+                val_final = val_original
+                price_final = price_in_original_currency
+
+        total_display_value += val_final
         processed.append({
             "Категория": asset["type"],
             "Актив": asset["name"],
             "Количество": asset["qty"],
-            "Стойност (USD)": round(val, 2)
+            f"Стойност ({currency_symbol})": round(val_final, 2),
+            "Ед. Цена": round(price_final, 2)
         })
-    return total_usd, pd.DataFrame(processed)
+        
+    return total_display_value, pd.DataFrame(processed)
 
-# Показване на интерфейса
+# ЕКРАН НА ПРИЛОЖЕНИЕТО
 if st.session_state.portfolio:
-    total_portfolio_value, df_portfolio = process_portfolio()
+    total_val, df_portfolio = process_portfolio(currency)
     
-    st.metric(label="📊 Обща стойност на портфолиото", value=f"${total_portfolio_value:,.2f}")
+    # Показване на голямото табло
+    st.metric(label=f"📊 Обща стойност на портфолиото ({currency_symbol})", value=f"{currency_symbol}{total_val:,.2f}")
+    st.caption(f"Текущ обменен курс: 1 EUR = {eur_to_usd:.4f} USD")
     
-    # Секция 1: Главна диаграма
+    # Главна диаграма
     st.subheader("🍕 Общо разпределение на активите")
-    df_main_pie = df_portfolio.groupby("Категория")["Стойност (USD)"].sum().reset_index()
+    val_column = f"Стойност ({currency_symbol})"
+    df_main_pie = df_portfolio.groupby("Категория")[val_column].sum().reset_index()
     
-    fig_main = px.pie(df_main_pie, values="Стойност (USD)", names="Категория", hole=0.4, title="Портфолио по класове активи")
+    fig_main = px.pie(df_main_pie, values=val_column, names="Категория", hole=0.4, title="Портфолио по класове активи")
     st.plotly_chart(fig_main, use_container_width=True)
     
-    # Секция 2: Влизане в детайли по категории
+    # Детайлен преглед с табове
     st.markdown("---")
-    st.subheader("🔍 Детайлен преглед на категориите (Кликни, за да отвориш)")
+    st.subheader("🔍 Детайлен преглед на категориите")
     
     available_categories = df_portfolio["Категория"].unique()
-    
-    # Създаване на табове за всяка съществуваща категория
     tabs = st.tabs(list(available_categories))
     
     for index, cat_name in enumerate(available_categories):
@@ -112,17 +156,16 @@ if st.session_state.portfolio:
             st.write(f"### Вътрешно разпределение за клас: **{cat_name}**")
             df_sub = df_portfolio[df_portfolio["Категория"] == cat_name]
             
-            # Диаграма за конкретната категория
-            fig_sub = px.pie(df_sub, values="Стойност (USD)", names="Актив", hole=0.3, title=f"Активи в сектор {cat_name}")
+            fig_sub = px.pie(df_sub, values=val_column, names="Актив", hole=0.3, title=f"Активи в сектор {cat_name}")
             st.plotly_chart(fig_sub, use_container_width=True)
             
-            # Списък/Таблица с активите в тази категория
-            st.dataframe(df_sub[["Актив", "Количество", "Стойност (USD)"]], use_container_width=True)
+            st.dataframe(df_sub[["Актив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
     if st.button("❌ Изчисти цялото портфолио"):
         st.session_state.portfolio = []
         st.rerun()
 else:
     st.info("Портфолиото ви е празно. Добавете активи от страничното меню.")
+
 
 
