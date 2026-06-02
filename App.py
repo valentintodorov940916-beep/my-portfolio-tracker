@@ -32,7 +32,7 @@ usd_to_eur = 1.0 / eur_to_usd
 
 # МЕНЮ ЗА ВЪВЕЖДАНЕ НА АКТИВИ
 st.sidebar.header("➕ Добави нов актив")
-asset_type = st.sidebar.selectbox("Тип актив", ["Международна Акция / ETF", "БФБ (Българска Акция в EUR)", "Благородни Метали (Унции)", "Кеш / Депозит"])
+asset_type = st.sidebar.selectbox("Тип актив", ["Международна Акция / ETF", "БФБ (Българска Акция в EUR)", "Благородни Метали (Унции)", "Недвижим Имот", "Кеш / Депозит"])
 
 if asset_type == "Международна Акция / ETF":
     ticker = st.sidebar.text_input("Тикер (напр. AAPL, TSLA, 3CP.F)", value="AAPL").upper()
@@ -59,6 +59,14 @@ elif asset_type == "Благородни Метали (Унции)":
         st.success(f"Добавено: {metal_qty} oz {metal_type}")
         st.rerun()
 
+elif asset_type == "Недвижим Имот":
+    property_name = st.sidebar.text_input("Описание (напр. Двустаен София)", value="Апартамент")
+    property_value = st.sidebar.number_input("Текуща пазарна стойност (в EUR)", min_value=0.0, value=150000.0, step=1000.0)
+    if st.sidebar.button("Добави Имот"):
+        st.session_state.portfolio.append({"type": "Имоти", "name": property_name, "qty": 1.0, "is_property": True, "price_eur": property_value, "input_currency": "EUR"})
+        st.success(f"Добавено: {property_name}")
+        st.rerun()
+
 elif asset_type == "Кеш / Депозит":
     cash_currency = st.sidebar.selectbox("Валута на кеша", ["EUR", "USD"])
     cash_name = st.sidebar.text_input("Банка / Описание", value="Револют")
@@ -70,12 +78,11 @@ elif asset_type == "Кеш / Депозит":
 
 # ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
-    # Точно взимане на спот цените за 1 унция директно чрез фючърсните пазари (в USD)
     try:
         gold_price_per_oz_usd = tf.Ticker("GC=F").history(period="1d")['Close'].iloc[-1]
         silver_price_per_oz_usd = tf.Ticker("SI=F").history(period="1d")['Close'].iloc[-1]
     except:
-        gold_price_per_oz_usd, silver_price_per_oz_usd = 2350.0, 29.50 # Резервни пазарни котировки при срив
+        gold_price_per_oz_usd, silver_price_per_oz_usd = 2350.0, 29.50
 
     processed = []
     total_display_value = 0.0
@@ -95,6 +102,8 @@ def process_portfolio(target_currency):
                     price_in_original_currency = 0.0
         elif asset["type"] == "Метали":
             price_in_original_currency = gold_price_per_oz_usd if asset["name"] == "Злато" else silver_price_per_oz_usd
+        elif asset["type"] == "Имоти":
+            price_in_original_currency = asset["price_eur"]
         elif asset["type"] == "Кеш":
             price_in_original_currency = 1.0
 
@@ -158,13 +167,13 @@ if st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Актив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # Управление на активите
+    # Управление на активите (ПОПРАВЕН РЕД С КОЛОНИТЕ)
     st.markdown("---")
     st.subheader("🛠️ Управление и редакция на активите")
     st.write("Променете количеството или изтрийте отделна позиция без рестартиране:")
 
     for idx, item in enumerate(st.session_state.portfolio):
-        col1, col2, col3, col4 = st.columns()
+        col1, col2, col3, col4 = st.columns(4) # ТУК БЕШЕ ГРЕШКАТА - ДОБАВЕНО Е ЧИСЛОТО 4
         with col1:
             st.write(f"**{item['name']}** ({item['type']})")
         with col2:
@@ -184,6 +193,7 @@ if st.session_state.portfolio:
         st.rerun()
 else:
     st.info("Портфолиото ви е празно. Добавете активи от страничното меню.")
+
 
 
 
