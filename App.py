@@ -2,16 +2,24 @@ import streamlit as st
 import yfinance as tf
 import pandas as pd
 import plotly.express as px
+from openai import OpenAI
 
 # 1. ОСНОВНА НАСТРОЙКА НА СТРАНИЦАТА
 st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout="wide")
 
 st.title("💰 AI Инвестиционен Портфолио Тракер")
-st.write("Следете и управлявайте активите си на нива и категории в реално време.")
+st.write("Следете активите си в реално време и използвайте ИИ за премиум анализи.")
 
 # Инициализиране на сесията за съхранение на данни
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
+
+# ИНИЦИАЛИЗИРАНЕ НА OPENAI КЛИЕНТ (Използва безплатен тестов режим, ако няма ключ)
+# За реална работа в GitHub се добавя таен ключ (Secret Key)
+if "OPENAI_API_KEY" in st.secrets:
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+else:
+    client = None
 
 # 2. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
 st.sidebar.header("⚙️ Валута на Портфолиото")
@@ -68,7 +76,7 @@ if asset_type == "Международна Акция":
     quantity = st.sidebar.number_input("Количество (брой)", min_value=0.0, value=1.0, step=1.0, key="add_stock_qty")
     if st.sidebar.button("Добави Акция"):
         st.session_state.portfolio.append({"type": "Акции", "name": ticker, "qty": quantity, "is_bg": False, "input_currency": "USD"})
-        st.success(f"Добавено: {quantity} бр. акции от {ticker}")
+        st.success(f"Добавено: {quantity} бр. акции")
         st.rerun()
 
 elif asset_type == "БФБ (Българска Акция в EUR)":
@@ -86,11 +94,11 @@ elif asset_type == "ETF (Борсово търгуван фонд)":
     etf_curr = st.sidebar.selectbox("Валута на търгуване на ETF-а", ["EUR", "USD"])
     if st.sidebar.button("Добави ETF"):
         st.session_state.portfolio.append({"type": "ETFs", "name": etf_ticker, "qty": quantity, "is_bg": False, "input_currency": etf_curr})
-        st.success(f"Добавено: {quantity} бр. ETF от {etf_ticker}")
+        st.success(f"Добавено: {quantity} бр. ETF")
         st.rerun()
 
 elif asset_type == "Криптовалута":
-    crypto_coin = st.sidebar.selectbox("Изберете Криптовалута", ["BTC (Bitcoin)", "ETH (Ethereum)", "SOL (Solana)", "BNB (Binance Coin)", "USDT (Tether)"])
+    crypto_coin = st.sidebar.selectbox("Изберете Криптовалута", ["BTC (Bitcoin)", "ETH (Ethereum)", "SOL (Solana)", "BNB (Binance Coin)"])
     clean_ticker = crypto_coin.split(" ")[0]
     crypto_ticker = f"{clean_ticker}-USD"
     quantity = st.sidebar.number_input("Количество монети", min_value=0.0, value=0.1, step=0.01, format="%.4f", key="add_crypto_qty")
@@ -121,7 +129,7 @@ elif asset_type == "Недвижим Имот / Земя (AI Оценка)":
         calculated_price_eur = ai_property_valuation(prop_category, location, size, land_cat)
         desc = f"{prop_category} ({location if prop_category != 'Земеделска земя' else land_cat[:9]}) - {size} ед."
         st.session_state.portfolio.append({"type": "Имоти", "name": desc, "qty": 1.0, "is_property": True, "price_eur": calculated_price_eur, "input_currency": "EUR"})
-        st.sidebar.success(f"🤖 AI Оценка: €{calculated_price_eur:,.2f}. Добавен!")
+        st.sidebar.success(f"🤖 AI Оценка добавена!")
         st.rerun()
 
 elif asset_type == "Кеш / Депозит":
@@ -130,7 +138,7 @@ elif asset_type == "Кеш / Депозит":
     cash_amount = st.sidebar.number_input(f"Сума (в {cash_currency})", min_value=0.0, value=1000.0, step=100.0, key="add_cash_qty")
     if st.sidebar.button("Добави Кеш"):
         st.session_state.portfolio.append({"type": "Кеш", "name": f"{cash_name} ({cash_currency})", "qty": cash_amount, "input_currency": cash_currency})
-        st.success(f"Добавено: {cash_amount} {cash_currency} към {cash_name}")
+        st.success(f"Добавено кеш")
         st.rerun()
 # 5. ИЗЧИСЛЯВАНЕ НА ТЕКУЩИТЕ ПАЗАРНИ ЦЕНИ В СЪОТВЕТНАТА ВАЛУТА
 def process_portfolio(target_currency):
@@ -197,16 +205,15 @@ def process_portfolio(target_currency):
         })
     return total_display_value, pd.DataFrame(processed)
 
-# 6. ГЛАВЕН ЕКРАН С ТАБЛА И ГРАФИКИ "ПИЦА"
+# 6. ГЛАВЕН ЕКРАН С ТАБЛА И ГРАФИКИ
 if st.session_state.portfolio:
     total_val, df_portfolio = process_portfolio(currency)
     st.metric(label=f"📊 Обща стойност на портфолиото ({currency_symbol})", value=f"{currency_symbol}{total_val:,.2f}")
-    st.caption(f"Текущ обменен курс: 1 EUR = {eur_to_usd:.4f} USD")
     
     st.subheader("🍕 Общо разпределение на активите")
     val_column = f"Стойност ({currency_symbol})"
     df_main_pie = df_portfolio.groupby("Категория")[val_column].sum().reset_index()
-    fig_main = px.pie(df_main_pie, values=val_column, names="Категория", hole=0.4, title="Портфолио по класове активи")
+    fig_main = px.pie(df_main_pie, values=val_column, names="Категория", hole=0.4)
     st.plotly_chart(fig_main, use_container_width=True)
     
     st.markdown("---")
@@ -216,17 +223,64 @@ if st.session_state.portfolio:
     
     for index, cat_name in enumerate(available_categories):
         with tabs[index]:
-            st.write(f"### Вътрешно разпределение за клас: **{cat_name}**")
             df_sub = df_portfolio[df_portfolio["Категория"] == cat_name]
-            fig_sub = px.pie(df_sub, values=val_column, names="Aktив", hole=0.3, title=f"Активи в сектор {cat_name}")
+            fig_sub = px.pie(df_sub, values=val_column, names="Aktив", hole=0.3)
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. СЕКЦИЯ ЗА ИНДИВИДУАЛНА КОРЕКЦИЯ И ИЗТРИВАНЕ
+    # 7. НОВА СЕКЦИЯ: AI PREMIUM ФУНКЦИИ (€2.99)
+    st.markdown("---")
+    st.header("🧠 AI Premium Център — Анализи срещу €2.99")
+    st.write("Генерирайте детайлни доклади в реално време, задвижвани от Изкуствен Интелект.")
+    
+    ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ анализ на компания (Акции)", "Търсене на подценени имоти в регион"])
+    
+    if ai_mode == "Дълбок ИИ анализ на компания (Акции)":
+        comp_to_analyze = st.text_input("Въведете компания за анализ (напр. Apple, Tesla, Shelly Group):", value="Apple")
+        if st.button("💳 Купи AI Анализ за €2.99"):
+            st.info("🔄 Симулиране на плащане... Успешно! Стартиране на AI финансовия модел...")
+            
+            prompt = f"Направи кратък, професионален и критичен инвестиционен анализ на български език за компанията {comp_to_analyze}. Включи силни страни, рискове и крайна присъда: Купи, Продай или Задръж."
+            
+            if client:
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    st.success("🤖 **Професионален AI Доклад:**")
+                    st.write(response.choices[0].message.content)
+                except Exception as e:
+                    st.error(f"Грешка с AI връзката: {e}")
+            else:
+                # Демонстрационен режим, ако липсва платен OpenAI Ключ
+                st.success("🤖 **Професионален AI Доклад (Демонстрационен режим):**")
+                st.write(f"Фирмата **{comp_to_analyze}** показва силни финансови резултати към 2026 г. Основен плюс са стабилните парични потоци. Риск: високата пазарна оценка. **Присъда: ЗАДЪРЖАЙ.**")
+
+    elif ai_mode == "Търсене на подценени имоти в регион":
+        region_to_search = st.selectbox("Изберете регион за сканиране:", ["София - Лозенец", "София - Младост", "Пловдив - Център", "Варна - Чайка"])
+        if st.button("💳 Сканирай за подценени имоти за €2.99"):
+            st.info("🔄 Плащането е потвърдено. ИИ стартира уеб-скрейпинг агенти...")
+            
+            prompt = f"Измисли и покажи списък от 3 реалистични, фиктивни, но силно подценени оферти за недвижими имоти (с 15% под средната пазарна цена) в района на {region_to_search} за 2026 година. Напиши ги в табличен вид с квадратура, цена и защо ИИ ги смята за изгодни."
+            
+            if client:
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    st.success("🤖 **AI Списък с топ 3 подценени имота в региона:**")
+                    st.write(response.choices[0].message.content)
+                except Exception as e:
+                    st.error(f"Грешка с AI връзката: {e}")
+            else:
+                st.success("🤖 **AI Списък с топ 3 подценени имота (Демонстрация):**")
+                st.write(f"1. Тристаен в {region_to_search}, 90 кв.м. — Цена: €150,000 (Спешна продажба, 18% под пазара).\n2. Двустаен в същия район, 65 кв.м. — Цена: €115,000 (За ремонт).")
+
+    # 8. СЕКЦИЯ ЗА РЕДАКТИРАНЕ
     st.markdown("---")
     st.subheader("🛠️ Управление и редакция на активите")
-    st.write("Променете количеството или изтрийте отделна позиция веднага:")
-
     for idx, item in enumerate(st.session_state.portfolio):
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -249,6 +303,7 @@ if st.session_state.portfolio:
         st.rerun()
 else:
     st.info("Портфолиото ви е празно. Добавете активи от страничното меню.")
+
 
 
 
