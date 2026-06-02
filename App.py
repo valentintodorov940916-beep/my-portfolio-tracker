@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 from openai import OpenAI
 from supabase import create_client, Client
+import streamlit.components.v1 as components
 
 # 1. СВЪРЗВАНЕ СЪС SUPABASE БАЗА ДАННИ И REAL OPENAI ИИ
 try:
@@ -25,7 +26,34 @@ st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout=
 st.title("💰 AI Инвестиционен Портфолио Тракер")
 st.write("Следете активите си трайно с Вашия Google профил в реално време.")
 
-# 2. СИСТЕМА ЗА РЕГИСТРАЦИЯ И ВХОД (СИМУЛАЦИЯ)
+# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ (Google AdSense СТИЛ)
+def render_ad_banner(banner_type="horizontal"):
+    if banner_type == "horizontal":
+        # Хоризонтален банер за главния екран (728x90)
+        html_code = """
+        <div style="background-color: #f1f3f4; border: 1px dashed #34a853; border-radius: 8px; padding: 10px; text-align: center; font-family: sans-serif; color: #5f6368; margin-bottom: 20px;">
+            <small style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #a1a4a8; margin-bottom: 5px;">Реклама от Google AdSense</small>
+            <strong style="color: #34a853; font-size: 16px;">📈 Искате ли по-висока доходност?</strong><br>
+            <span style="font-size: 13px;">Отворете безплатна демо сметка при лицензиран брокер с 0% комисионна!</span>
+        </div>
+        """
+        components.html(html_code, height=90)
+    else:
+        # Вертикален/квадратен банер за страничното меню (300x250)
+        html_code = """
+        <div style="background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 15px; text-align: center; font-family: sans-serif; color: #495057; margin-top: 30px;">
+            <small style="display: block; font-size: 9px; color: #6c757d; margin-bottom: 8px;">РЕКЛАМА</small>
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 4px; font-weight: bold; font-size: 14px;">
+                ₿ Купи Биткойн бързо и сигурно през мобилно приложение!
+            </div>
+        </div>
+        """
+        components.html(html_code, height=180)
+
+# Показване на първия голям банер най-отгоре в сайта
+render_ad_banner("horizontal")
+
+# 2. СИСТЕМА ЗА REGИСТРАЦИЯ И ВХОД
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
@@ -47,7 +75,7 @@ else:
         st.session_state.user_email = None
         st.rerun()
 
-# 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
+# 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА
 st.sidebar.header("⚙️ Валута на Портфолиото")
 currency = st.sidebar.radio("Изберете основна валута:", ["EUR (€)", "USD ($)"])
 currency_symbol = "€" if "EUR" in currency else "$"
@@ -179,6 +207,9 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     cash_name = st.sidebar.text_input("Банка / Описание", value="Револют")
     cash_amount = st.sidebar.number_input(f"Сума", min_value=0.0, value=1000.0, step=100.0)
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
+
+# Показване на втория квадратен банер най-отдолу в менюто вляво
+render_ad_banner("sidebar")
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
     try:
@@ -289,7 +320,7 @@ elif st.session_state.portfolio:
                     except Exception as e:
                         st.warning("⚠️ Връзката към OpenAI е претоварена (RateLimit / Липса на баланс). Превключване към Резервен AI режим:")
                         st.markdown(f"### 🤖 Професионален AI Финансов Анализ за {comp_to_analyze} (Резервен):")
-                        st.markdown(f"**1. Оценка:** С P/E от {pe_ratio} компанията е стабилна. **2. Рентабилност:** Маржът от {profit_margin} осигурява защита срещу пазарни сътресения. **3. Присъда:** ЗАДЪРЖАЙ (HOLD).")
+                        st.markdown(f"**1. Оценка:** С P/E {pe_ratio} компанията е стабилна. **2. Присъда:** ЗАДЪРЖАЙ (HOLD).")
             else:
                 st.warning("Приложението е в Демо режим за ИИ анализите. Поставете OpenAI Key в Secrets.")
 
