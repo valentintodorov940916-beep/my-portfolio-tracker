@@ -3,5 +3,7 @@ yfinance
 pandas
 plotly
 openai
+supabase
+
 
 
