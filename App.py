@@ -26,7 +26,7 @@ st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout=
 st.title("💰 AI Инвестиционен Портфолио Тракер")
 st.write("Следете активите си трайно с Вашия Google профил в реално време.")
 
-# ТВОЯТ ОФИЦИАЛЕН ЛИНК ЗА ПЛАЩАНИЯ В КО-ФИ / СТРАЙП
+# ТВОЯТ ОФИЦИАЛЕН ДИРЕКТЕН ЛИНК ЗА ПЛАЩАНИЯ БЕЗ РЕГИСТРАЦИЯ
 KO_FI_PAY_URL = "https://ko-fi.com"
 
 # ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ (Google AdSense СТИЛ)
@@ -285,30 +285,31 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ГОЛЯМ ЗЕЛЕН БУТОН ЗА ВСИЧКИ ТЕЛЕФОНИ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ИЗЧИСТЕН ПОПРАВЕН БУТОН ЗА HTML ВИЗУАЛИЗАЦИЯ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     st.write("За да отключите реалните подробни доклади, е необходимо еднократно плащане от €2.99, което отива директно по Вашата банкова сметка.")
     
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # ГОЛЯМ И СИГУРЕН ГРАФИЧЕН БУТОН ЗА ПЛАЩАНЕ (HTML)
-    st.markdown(f"""
-        <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
-            <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
-                        color: white; 
-                        padding: 14px 25px; 
-                        text-align: center; 
-                        border-radius: 8px; 
-                        font-weight: bold; 
-                        font-size: 16px; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                        margin-bottom: 25px;
-                        cursor: pointer;">
-                💳 КЛИКНИ ТУК ЗА ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY
-            </div>
-        </a>
-    """, unsafe_allow_html=True)
+    # СЪЗДАВАНЕ НА РЕАЛЕН И БЕЗОПАСЕН БУТОН С ИЗЧИСТЕНА КРЪСТОСАНА HTML СТРУКТУРА
+    html_button = f"""
+    <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
+        <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
+                    color: white; 
+                    padding: 14px 25px; 
+                    text-align: center; 
+                    border-radius: 8px; 
+                    font-weight: bold; 
+                    font-size: 16px; 
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    margin-bottom: 25px;
+                    cursor: pointer;">
+            💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY
+        </div>
+    </a>
+    """
+    st.markdown(html_button, unsafe_allow_html=True)
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
@@ -326,7 +327,7 @@ elif st.session_state.portfolio:
             except:
                 pe_ratio, pb_ratio, ps_ratio, eps, profit_margin = 28.5, 4.2, 7.1, 6.5, "15.4%"
 
-            st.write(f"### 📊 Фундаментални показатели за **{comp_to_analyze}**")
+            st.write(f"### 📊 Fundаментални показатели за **{comp_to_analyze}**")
             st.table(pd.DataFrame({"Показател": ["P/E", "P/B", "P/S", "EPS", "Марж"], "Стойност": [pe_ratio, pb_ratio, ps_ratio, eps, profit_margin]}))
 
             prompt = f"Направи дълбок фундаментален анализ на български за {comp_to_analyze} на база: P/E: {pe_ratio}, P/B: {pb_ratio}, P/S: {ps_ratio}, EPS: {eps}, Марж: {profit_margin}. Раздели го на 4 сериозни финансови части с крайна присъда."
@@ -352,7 +353,7 @@ elif st.session_state.portfolio:
             st.success(f"🤖 **ИИ откри топ сделка под пазарната стойност в {prem_specific}:**")
             st.markdown(f"| Двустаен | 65 кв.м. | Пазарна: €{int(estimated_avg)}/кв.м. | Офертна цена: €{int(estimated_avg * 0.85 * 65)} | **15% под пазара.** |")
 
-    # 8. СЕКЦИЯ ЗА ТРИЕНЕ
+# 8. СЕКЦИЯ ЗА ТРИЕНЕ
     st.markdown("---")
     st.subheader("🛠️ Управление и редакция на активите")
     for idx, item in enumerate(df_portfolio.to_dict(orient="records")):
