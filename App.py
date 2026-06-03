@@ -286,18 +286,33 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI РЕАЛНИ PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ БАНКОВИЯ ТИ ШЛЮЗ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ БАНКОВИЯ ТИ ШЛЮЗ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     st.write("За да отключите реалните подробни доклади, е необходимо еднократно плащане от €2.99, което отива директно по Вашата банкова сметка.")
     
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
+    # СЪЗДАВАНЕ НА ИСТИНСКИ БУТОН ЗА ПЛАЩАНЕ (Работи на всички телефони)
+    st.markdown(f"""
+        <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
+            <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
+                        color: white; 
+                        padding: 14px 25px; 
+                        text-align: center; 
+                        border-radius: 8px; 
+                        font-weight: bold; 
+                        font-size: 16px; 
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        margin-bottom: 20px;
+                        cursor: pointer;">
+                💳 КЛИКНИ ТУК ЗА ПЛАЩАНЕ НА €2.99 С КАРТА
+            </div>
+        </a>
+    """, unsafe_allow_allowed=True, unsafe_allow_html=True)
+    
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
-        
-        # Интеграция на бутон, който отваря твоя личен Ko-fi/Stripe платежен шлюз!
-        st.markdown(f'🔗 **[💳 Кликни тук, за да платиш €2.99 сигурно с карта]({KO_FI_PAY_URL})**')
         
         if st.button("🔓 Отключи AI Доклада (След потвърдено плащане)"):
             st.info("🔄 Извличане на фундаментални показатели от пазара...")
@@ -333,13 +348,12 @@ elif st.session_state.portfolio:
         prem_province = st.selectbox("Избери Област за сканиране:", all_bg_provinces, key="prem_prov")
         prem_specific = st.text_input("Напишете конкретен град или квартал:", value=f"гр. {prem_province}", key="prem_spec")
         
-        st.markdown(f'🔗 **[💳 Купи Сканиране на Региона за €2.99]({KO_FI_PAY_URL})**')
-        
         if st.button("🔓 Отключи Имотния Доклад (След плащане)"):
             st.info(f"🔍 AI сканира пазара в {prem_specific}... Успешно!")
             estimated_avg = ai_property_valuation("Двустаен", prem_province, prem_specific, 70) / 70
             st.success(f"🤖 **ИИ откри топ сделка под пазарната стойност в {prem_specific}:**")
             st.markdown(f"| Двустаен | 65 кв.м. | Пазарна: €{int(estimated_avg)}/кв.м. | Офертна цена: €{int(estimated_avg * 0.85 * 65)} | **15% под пазара.** |")
+
 
     # 8. СЕКЦИЯ ЗА ТРИЕНЕ
     st.markdown("---")
