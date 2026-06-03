@@ -27,10 +27,9 @@ st.title("💰 AI Инвестиционен Портфолио Тракер")
 st.write("Следете активите си трайно с Вашия Google профил в реално време.")
 
 # ТВОЯТ ОФИЦИАЛЕН ЛИНК ЗА ПЛАЩАНИЯ В КО-ФИ / СТРАЙП
-KO_FI_PAY_URL = "https://ko-fi.com/valentintodorov940916gmailcom"
+KO_FI_PAY_URL = "https://ko-fi.com"
 
-# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕАЛНИ Google AdSense РЕКЛАМИ
-# Когато получиш одобрение от Google, просто замени този тестов HTML със скрипта от Google!
+# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ (Google AdSense СТИЛ)
 def render_ad_banner(banner_type="horizontal"):
     if banner_type == "horizontal":
         html_code = """
@@ -55,7 +54,7 @@ def render_ad_banner(banner_type="horizontal"):
 # Показване на хоризонталния банер най-отгоре в приложението
 render_ad_banner("horizontal")
 
-# 2. СИСТЕМА ЗА РЕГИСТРАЦИЯ И ВХОД ЧРЕЗ БАЗАТА ДАННИ
+# 2. СИСТЕМА ЗА REGИСТРАЦИЯ И ВХОД ЧРЕЗ БАЗАТА ДАННИ
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
@@ -286,14 +285,14 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ БАНКОВИЯ ТИ ШЛЮЗ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ГОЛЯМ ЗЕЛЕН БУТОН ЗА ВСИЧКИ ТЕЛЕФОНИ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     st.write("За да отключите реалните подробни доклади, е необходимо еднократно плащане от €2.99, което отива директно по Вашата банкова сметка.")
     
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # СЪЗДАВАНЕ НА ИСТИНСКИ БУТОН ЗА ПЛАЩАНЕ (Работи на всички телефони)
+    # ГОЛЯМ И СИГУРЕН ГРАФИЧЕН БУТОН ЗА ПЛАЩАНЕ (HTML)
     st.markdown(f"""
         <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
             <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
@@ -304,12 +303,12 @@ elif st.session_state.portfolio:
                         font-weight: bold; 
                         font-size: 16px; 
                         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                        margin-bottom: 20px;
+                        margin-bottom: 25px;
                         cursor: pointer;">
-                💳 КЛИКНИ ТУК ЗА ПЛАЩАНЕ НА €2.99 С КАРТА
+                💳 КЛИКНИ ТУК ЗА ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY
             </div>
         </a>
-    """, unsafe_allow_allowed=True, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
@@ -324,9 +323,8 @@ elif st.session_state.portfolio:
                 eps = stock_info.get('trailingEps', 'N/A')
                 profit_margin = stock_info.get('profitMargins', 'N/A')
                 if profit_margin != 'N/A': profit_margin = f"{profit_margin * 100:.2f}%"
-                market_cap = stock_info.get('marketCap', 'N/A')
             except:
-                pe_ratio, pb_ratio, ps_ratio, eps, profit_margin, market_cap = 28.5, 4.2, 7.1, 6.5, "15.4%", "$3B"
+                pe_ratio, pb_ratio, ps_ratio, eps, profit_margin = 28.5, 4.2, 7.1, 6.5, "15.4%"
 
             st.write(f"### 📊 Фундаментални показатели за **{comp_to_analyze}**")
             st.table(pd.DataFrame({"Показател": ["P/E", "P/B", "P/S", "EPS", "Марж"], "Стойност": [pe_ratio, pb_ratio, ps_ratio, eps, profit_margin]}))
@@ -353,7 +351,6 @@ elif st.session_state.portfolio:
             estimated_avg = ai_property_valuation("Двустаен", prem_province, prem_specific, 70) / 70
             st.success(f"🤖 **ИИ откри топ сделка под пазарната стойност в {prem_specific}:**")
             st.markdown(f"| Двустаен | 65 кв.м. | Пазарна: €{int(estimated_avg)}/кв.м. | Офертна цена: €{int(estimated_avg * 0.85 * 65)} | **15% под пазара.** |")
-
 
     # 8. СЕКЦИЯ ЗА ТРИЕНЕ
     st.markdown("---")
