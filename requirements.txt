@@ -4,6 +4,8 @@ pandas
 plotly
 openai
 supabase
+extra-streamlit-components
+
 
 
 

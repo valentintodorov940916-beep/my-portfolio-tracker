@@ -5,6 +5,7 @@ import plotly.express as px
 from openai import OpenAI
 from supabase import create_client, Client
 import streamlit.components.v1 as components
+import extra_streamlit_components as stx
 
 # 1. СВЪРЗВАНЕ СЪС SUPABASE БАЗА ДАННИ И REAL OPENAI ИИ
 try:
@@ -29,7 +30,10 @@ st.write("Следете активите си трайно с Вашия Google
 # ТВОЯТ ОФИЦИАЛЕН ДИРЕКТЕН ЛИНК ЗА ПЛАЩАНИЯ БЕЗ РЕГИСТРАЦИЯ
 KO_FI_PAY_URL = "https://ko-fi.com"
 
-# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ (Google AdSense СТИЛ)
+# Инициализиране на мениджъра за бисквитки (Cookies)
+cookie_manager = stx.CookieManager()
+
+# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ
 def render_ad_banner(banner_type="horizontal"):
     if banner_type == "horizontal":
         html_code = """
@@ -51,22 +55,31 @@ def render_ad_banner(banner_type="horizontal"):
         """
         components.html(html_code, height=180)
 
-# Показване на хоризонталния банер най-отгоре в приложението
 render_ad_banner("horizontal")
 
-# 2. СИСТЕМА ЗА REGИСТРАЦИЯ И ВХОД ЧРЕЗ БАЗАТА ДАННИ
+# 2. АВТОМАТИЧНА СИСТЕМА ЗА ТРАЙНО ЗАПАЗВАНЕ НА ВХОДА (COOKIES)
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
+
+# Опит за автоматично прочитане на записана бисквитка от устройството
+saved_email = cookie_manager.get(cookie="user_google_email")
+if saved_email and st.session_state.user_email is None:
+    st.session_state.user_email = saved_email
 
 st.sidebar.header("👤 Потребителски Профил")
 
 if st.session_state.user_email is None:
     st.sidebar.warning("Не сте вписани в профила си.")
     email_input = st.sidebar.text_input("Въведете Вашия Google имейл за вход:", value="")
+    remember_me = st.sidebar.checkbox("Запомни ме на това устройство", value=True)
+    
     if st.sidebar.button("🚀 Вход с Google"):
         if email_input and "@" in email_input:
             st.session_state.user_email = email_input
-            st.sidebar.success(f"Добре дошли, {email_input}!")
+            if remember_me:
+                # Записване на бисквитка за 30 дни на устройството на потребителя
+                cookie_manager.set("user_google_email", email_input, max_age=2592000)
+            st.sidebar.success(f"Добре дошли!")
             st.rerun()
         else:
             st.sidebar.error("Моля, въведете валиден имейл адрес.")
@@ -74,6 +87,7 @@ else:
     st.sidebar.success(f"🟢 Вписан профил: {st.session_state.user_email}")
     if st.sidebar.button("❌ Изход от профила"):
         st.session_state.user_email = None
+        cookie_manager.delete("user_google_email") # Изтриване на бисквитката при изход
         st.rerun()
 
 # 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
@@ -142,6 +156,8 @@ def load_user_portfolio_from_db():
 
 if st.session_state.user_email:
     st.session_state.portfolio = load_user_portfolio_from_db()
+else:
+    st.session_state.portfolio = []
 
 st.sidebar.header("➕ Добави нов актив")
 asset_type = st.sidebar.selectbox("Тип актив", ["Международна Акция", "БФБ (Българска Акция в EUR)", "ETF (Борсово търгуван фонд)", "Криптовалута", "Благородни Метали (Унции)", "Недвижим Имот / Земя (AI Оценка)", "Кеш / Депозит"])
@@ -209,7 +225,6 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     cash_amount = st.sidebar.number_input(f"Сума", min_value=0.0, value=1000.0, step=100.0)
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
-# Показване на втория рекламен блок най-долу в менюто вляво
 render_ad_banner("sidebar")
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
@@ -292,7 +307,6 @@ elif st.session_state.portfolio:
     
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # СЪЗДАВАНЕ НА РЕАЛЕН И БЕЗОПАСЕН БУТОН С ИЗЧИСТЕНА КРЪСТОСАНА HTML СТРУКТУРА
     html_button = f"""
     <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
         <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
@@ -313,7 +327,6 @@ elif st.session_state.portfolio:
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
-        
         if st.button("🔓 Отключи AI Доклада (След потвърдено плащане)"):
             st.info("🔄 Извличане на фундаментални показатели от пазара...")
             try:
@@ -330,7 +343,7 @@ elif st.session_state.portfolio:
             st.write(f"### 📊 Fundаментални показатели за **{comp_to_analyze}**")
             st.table(pd.DataFrame({"Показател": ["P/E", "P/B", "P/S", "EPS", "Марж"], "Стойност": [pe_ratio, pb_ratio, ps_ratio, eps, profit_margin]}))
 
-            prompt = f"Направи дълбок фундаментален анализ на български за {comp_to_analyze} на база: P/E: {pe_ratio}, P/B: {pb_ratio}, P/S: {ps_ratio}, EPS: {eps}, Марж: {profit_margin}. Раздели го на 4 сериозни финансови части с крайна присъда."
+            prompt = f"Направи дълбок фундаментален анализ на български за {comp_to_analyze} на база: P/E: {pe_ratio}, P/B: {pb_ratio}, P/S: {ps_ratio}, EPS: {eps}, Margин: {profit_margin}. Раздели го на 4 сериозни финансови части с крайна присъда."
             
             if client:
                 with st.spinner("ИИ съставя доклада..."):
@@ -346,14 +359,13 @@ elif st.session_state.portfolio:
     elif ai_mode == "Търсене на подценени имоти в регион (Цяла България)":
         prem_province = st.selectbox("Избери Област за сканиране:", all_bg_provinces, key="prem_prov")
         prem_specific = st.text_input("Напишете конкретен град или квартал:", value=f"гр. {prem_province}", key="prem_spec")
-        
         if st.button("🔓 Отключи Имотния Доклад (След плащане)"):
             st.info(f"🔍 AI сканира пазара в {prem_specific}... Успешно!")
             estimated_avg = ai_property_valuation("Двустаен", prem_province, prem_specific, 70) / 70
             st.success(f"🤖 **ИИ откри топ сделка под пазарната стойност в {prem_specific}:**")
             st.markdown(f"| Двустаен | 65 кв.м. | Пазарна: €{int(estimated_avg)}/кв.м. | Офертна цена: €{int(estimated_avg * 0.85 * 65)} | **15% под пазара.** |")
 
-# 8. СЕКЦИЯ ЗА ТРИЕНЕ
+    # 8. СЕКЦИЯ ЗА ТРИЕНЕ
     st.markdown("---")
     st.subheader("🛠️ Управление и редакция на активите")
     for idx, item in enumerate(df_portfolio.to_dict(orient="records")):
