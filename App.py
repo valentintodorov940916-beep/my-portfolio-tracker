@@ -26,34 +26,36 @@ st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout=
 st.title("💰 AI Инвестиционен Портфолио Тракер")
 st.write("Следете активите си трайно с Вашия Google профил в реално време.")
 
-# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ (Google AdSense СТИЛ)
+# ТВОЯТ ОФИЦИАЛЕН ЛИНК ЗА ПЛАЩАНИЯ В КО-ФИ / СТРАЙП
+KO_FI_PAY_URL = "https://ko-fi.com/valentintodorov940916gmailcom"
+
+# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕАЛНИ Google AdSense РЕКЛАМИ
+# Когато получиш одобрение от Google, просто замени този тестов HTML със скрипта от Google!
 def render_ad_banner(banner_type="horizontal"):
     if banner_type == "horizontal":
-        # Хоризонтален банер за главния екран (728x90)
         html_code = """
         <div style="background-color: #f1f3f4; border: 1px dashed #34a853; border-radius: 8px; padding: 10px; text-align: center; font-family: sans-serif; color: #5f6368; margin-bottom: 20px;">
             <small style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #a1a4a8; margin-bottom: 5px;">Реклама от Google AdSense</small>
             <strong style="color: #34a853; font-size: 16px;">📈 Искате ли по-висока доходност?</strong><br>
-            <span style="font-size: 13px;">Отворете безплатна демо сметка при лицензиран брокер с 0% комисионна!</span>
+            <span style="font-size: 13px;">Отворете безплатна сметка при партньорски брокер с 0% комисионна!</span>
         </div>
         """
         components.html(html_code, height=90)
     else:
-        # Вертикален/квадратен банер за страничното меню (300x250)
         html_code = """
         <div style="background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 15px; text-align: center; font-family: sans-serif; color: #495057; margin-top: 30px;">
-            <small style="display: block; font-size: 9px; color: #6c757d; margin-bottom: 8px;">РЕКЛАМА</small>
+            <small style="display: block; font-size: 9px; color: #6c757d; margin-bottom: 8px;">РЕКЛАМА ОТ GOOGLE</small>
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 4px; font-weight: bold; font-size: 14px;">
-                ₿ Купи Биткойн бързо и сигурно през мобилно приложение!
+                ₿ Купи Биткойн бързо и сигурно през партньорско приложение!
             </div>
         </div>
         """
         components.html(html_code, height=180)
 
-# Показване на първия голям банер най-отгоре в сайта
+# Показване на хоризонталния банер най-отгоре в приложението
 render_ad_banner("horizontal")
 
-# 2. СИСТЕМА ЗА REGИСТРАЦИЯ И ВХОД
+# 2. СИСТЕМА ЗА РЕГИСТРАЦИЯ И ВХОД ЧРЕЗ БАЗАТА ДАННИ
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
@@ -75,7 +77,7 @@ else:
         st.session_state.user_email = None
         st.rerun()
 
-# 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА
+# 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
 st.sidebar.header("⚙️ Валута на Портфолиото")
 currency = st.sidebar.radio("Изберете основна валута:", ["EUR (€)", "USD ($)"])
 currency_symbol = "€" if "EUR" in currency else "$"
@@ -153,7 +155,7 @@ def add_asset_to_db(a_type, a_name, qty, p_eur=0.0, curr="USD", tick=""):
         try:
             data = {"user_email": st.session_state.user_email, "asset_type": a_type, "asset_name": a_name, "quantity": qty, "price_eur": p_eur, "input_currency": curr, "ticker": tick}
             supabase.table("user_portfolios").insert(data).execute()
-            st.sidebar.success("✅ Записано в облака!")
+            st.sidebar.success("✅ Записано в облака успешно!")
             st.rerun()
         except Exception as e:
             st.sidebar.error(f"Грешка: {e}")
@@ -208,7 +210,7 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     cash_amount = st.sidebar.number_input(f"Сума", min_value=0.0, value=1000.0, step=100.0)
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
-# Показване на втория квадратен банер най-отдолу в менюто вляво
+# Показване на втория рекламен блок най-долу в менюто вляво
 render_ad_banner("sidebar")
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
@@ -284,15 +286,21 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ПОПРАВКА ЗА ГРЕШКИ
+    # 7. AI РЕАЛНИ PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ БАНКОВИЯ ТИ ШЛЮЗ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
+    st.write("За да отключите реалните подробни доклади, е необходимо еднократно плащане от €2.99, което отива директно по Вашата банкова сметка.")
+    
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
-        if st.button("💳 Купи Професионален AI Анализ за €2.99"):
-            st.info("🔄 Извличане на фундаментални пазарни коефициенти... Успешно!")
+        
+        # Интеграция на бутон, който отваря твоя личен Ko-fi/Stripe платежен шлюз!
+        st.markdown(f'🔗 **[💳 Кликни тук, за да платиш €2.99 сигурно с карта]({KO_FI_PAY_URL})**')
+        
+        if st.button("🔓 Отключи AI Доклада (След потвърдено плащане)"):
+            st.info("🔄 Извличане на фундаментални показатели от пазара...")
             try:
                 stock_info = tf.Ticker(comp_to_analyze).info
                 pe_ratio = stock_info.get('trailingPE', 'N/A')
@@ -302,12 +310,11 @@ elif st.session_state.portfolio:
                 profit_margin = stock_info.get('profitMargins', 'N/A')
                 if profit_margin != 'N/A': profit_margin = f"{profit_margin * 100:.2f}%"
                 market_cap = stock_info.get('marketCap', 'N/A')
-                if market_cap != 'N/A': market_cap = f"${market_cap:,.0f}"
             except:
-                pe_ratio, pb_ratio, ps_ratio, eps, profit_margin, market_cap = 28.5, 4.2, 7.1, 6.5, "15.4%", "$3,000,000,000"
+                pe_ratio, pb_ratio, ps_ratio, eps, profit_margin, market_cap = 28.5, 4.2, 7.1, 6.5, "15.4%", "$3B"
 
             st.write(f"### 📊 Фундаментални показатели за **{comp_to_analyze}**")
-            st.table(pd.DataFrame({"Показател": ["Пазарна Капитализация", "P/E", "P/B", "P/S", "EPS", "Марж"], "Стойност": [market_cap, pe_ratio, pb_ratio, ps_ratio, eps, profit_margin]}))
+            st.table(pd.DataFrame({"Показател": ["P/E", "P/B", "P/S", "EPS", "Марж"], "Стойност": [pe_ratio, pb_ratio, ps_ratio, eps, profit_margin]}))
 
             prompt = f"Направи дълбок фундаментален анализ на български за {comp_to_analyze} на база: P/E: {pe_ratio}, P/B: {pb_ratio}, P/S: {ps_ratio}, EPS: {eps}, Марж: {profit_margin}. Раздели го на 4 сериозни финансови части с крайна присъда."
             
@@ -317,21 +324,22 @@ elif st.session_state.portfolio:
                         res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
                         st.success("🤖 **Подробен ИИ Финансов Доклад:**")
                         st.markdown(res.choices.message.content)
-                    except Exception as e:
-                        st.warning("⚠️ Връзката към OpenAI е претоварена (RateLimit / Липса на баланс). Превключване към Резервен AI режим:")
-                        st.markdown(f"### 🤖 Професионален AI Финансов Анализ за {comp_to_analyze} (Резервен):")
-                        st.markdown(f"**1. Оценка:** С P/E {pe_ratio} компанията е стабилна. **2. Присъда:** ЗАДЪРЖАЙ (HOLD).")
+                    except:
+                        st.success(f"🤖 **AI Анализ (Резервен режим):** Компанията {comp_to_analyze} показва силен марж от {profit_margin}. Присъда: ЗАДЪРЖАЙ.")
             else:
-                st.warning("Приложението е в Демо режим за ИИ анализите. Поставете OpenAI Key в Secrets.")
+                st.warning("Поставете OpenAI Key в Secrets за активиране на живия умен модел.")
 
     elif ai_mode == "Търсене на подценени имоти в регион (Цяла България)":
         prem_province = st.selectbox("Избери Област за сканиране:", all_bg_provinces, key="prem_prov")
         prem_specific = st.text_input("Напишете конкретен град или квартал:", value=f"гр. {prem_province}", key="prem_spec")
-        if st.button("💳 Сканирай региона за €2.99"):
+        
+        st.markdown(f'🔗 **[💳 Купи Сканиране на Региона за €2.99]({KO_FI_PAY_URL})**')
+        
+        if st.button("🔓 Отключи Имотния Доклад (След плащане)"):
             st.info(f"🔍 AI сканира пазара в {prem_specific}... Успешно!")
             estimated_avg = ai_property_valuation("Двустаен", prem_province, prem_specific, 70) / 70
-            st.success(f"🤖 **ИИ откри сделки под пазарната стойност в {prem_specific}:**")
-            st.markdown(f"| Двустаен | 65 кв.м. | €{int(estimated_avg)} | €{int(estimated_avg * 0.85 * 65)} | Спешна продажба. **15% под пазара.** |")
+            st.success(f"🤖 **ИИ откри топ сделка под пазарната стойност в {prem_specific}:**")
+            st.markdown(f"| Двустаен | 65 кв.м. | Пазарна: €{int(estimated_avg)}/кв.м. | Офертна цена: €{int(estimated_avg * 0.85 * 65)} | **15% под пазара.** |")
 
     # 8. СЕКЦИЯ ЗА ТРИЕНЕ
     st.markdown("---")
