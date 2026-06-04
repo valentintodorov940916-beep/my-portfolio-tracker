@@ -7,21 +7,7 @@ from supabase import create_client, Client
 import streamlit.components.v1 as components
 import extra_streamlit_components as stx
 
-# 1. СВЪРЗВАНЕ СЪС SUPABASE БАЗА ДАННИ И REAL OPENAI ИИ
-try:
-    supabase_url = st.secrets["SUPABASE_URL"]
-    supabase_key = st.secrets["SUPABASE_KEY"]
-    supabase: Client = create_client(supabase_url, supabase_key)
-except:
-    st.error("Липсват Supabase настройки в Secrets! Портфолиото ще работи в паметта на браузъра.")
-    supabase = None
-
-if "OPENAI_API_KEY" in st.secrets:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-else:
-    client = None
-
-# ОСНОВНА НАСТРОЙКА НА СТРАНИЦАТА
+# 1. ОСНОВНА НАСТРОЙКА НА СТРАНИЦАТА
 st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout="wide")
 
 st.title("💰 AI Инвестиционен Портфолио Тракер")
@@ -29,6 +15,20 @@ st.write("Следете активите си трайно с Вашия Google
 
 # ТВОЯТ ОФИЦИАЛЕН ДИРЕКТЕН ЛИНК ЗА ПЛАЩАНИЯ БЕЗ РЕГИСТРАЦИЯ
 KO_FI_PAY_URL = "https://ko-fi.com"
+
+# Инициализиране на връзките
+try:
+    supabase_url = st.secrets["SUPABASE_URL"]
+    supabase_key = st.secrets["SUPABASE_KEY"]
+    supabase: Client = create_client(supabase_url, supabase_key)
+except:
+    st.error("Липсват Supabase настройки в Secrets!")
+    supabase = None
+
+if "OPENAI_API_KEY" in st.secrets:
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+else:
+    client = None
 
 # Инициализиране на мениджъра за бисквитки (Cookies)
 cookie_manager = stx.CookieManager()
@@ -56,13 +56,16 @@ def render_ad_banner(banner_type="horizontal"):
         components.html(html_code, height=180)
 
 render_ad_banner("horizontal")
-# 2. АВТОМАТИЧНА СИСТЕМА ЗА ТРАЙНО ЗАПАЗВАНЕ НА ВХОДА (COOKIES)
+# 2. ПОПРАВЕНА ИНТЕЛЕГЕНТНА СИСТЕМА ЗА АВТОМАТИЧЕН ВХОД (COOKIES)
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
+# Извличане на бисквитката с подсигуряване при рефреш
 saved_email = cookie_manager.get(cookie="user_google_email")
+
 if saved_email and st.session_state.user_email is None:
     st.session_state.user_email = saved_email
+    st.rerun()
 
 st.sidebar.header("👤 Потребителски Профил")
 
@@ -75,6 +78,7 @@ if st.session_state.user_email is None:
         if email_input and "@" in email_input:
             st.session_state.user_email = email_input
             if remember_me:
+                # Записване на бисквитката трайно в браузъра за 30 дни
                 cookie_manager.set("user_google_email", email_input, max_age=2592000)
             st.sidebar.success(f"Добре дошли!")
             st.rerun()
@@ -102,7 +106,6 @@ def get_eur_usd_rate():
 
 eur_to_usd = get_eur_usd_rate()
 usd_to_eur = 1.0 / eur_to_usd
-
 # 4. СПИСЪК СЪС ВСИЧКИ 28 ОБЛАСТИ В БЪЛГАРИЯ И AI ОЦЕНИТЕЛ НА ИМОТИ
 all_bg_provinces = [
     "Благоевград", "Бургас", "Варна", "Велико Търново", "Видин", "Враца", 
@@ -134,6 +137,7 @@ def ai_property_valuation(prop_type, province, specific_loc, size, category=""):
         if "сел" in specific_loc.lower(): price_per_meter *= 0.5
         elif "курорт" in specific_loc.lower() or "к.к." in specific_loc.lower(): price_per_meter *= 1.3
         return price_per_meter * size
+
 def load_user_portfolio_from_db():
     if supabase and st.session_state.user_email:
         try:
@@ -223,7 +227,6 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
 render_ad_banner("sidebar")
-
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
     try:
@@ -234,6 +237,7 @@ def process_portfolio(target_currency):
 
     processed = []
     total_display_value = 0.0
+
     for asset in st.session_state.portfolio:
         price_in_original_currency = 0.0
         asset_currency = asset["input_currency"]
@@ -297,20 +301,19 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ПРАВЕН ИЗВЕСТИЕ И ДИРЕКТЕН БУТОН ЗА HTML ПЛАЩАНЕ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ПОПРАВЕН БУТОН ЗА СЪЩИЯ ПРОЗОРЕЦ (TARGET_SELF)
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     
-    # ЗАДЪЛЖИТЕЛЕН ПРАВЕН ОТКАЗ ОТ ОТГОВОРНОСТ (DISCLAIMER)
-    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на каквито и да е финансови активи и недвижими имоти. Инвестирането крие риск от загуба на капитал.")
+    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на каквито и да е финансови активи.")
     
     st.write("За да отключите подробните ИИ доклади, натиснете зеления бутон за сигурно плащане през Stripe:")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # ГОЛЯМ И ПОПРАВЕН ЗЕЛЕН БУТОН С ТВОЯ РЕАЛЕН МАГАЗИН ЛИНК
+    # ПОПРАВЕН БУТОН - С `target="_self"` ЗА ПРЕНАСОЧВАНЕ В СЪЩИЯ ПРОЗОРЕЦ БЕЗ БЛОКИРАНЕ
     html_button = f"""
     <div style="text-align: center; margin-bottom: 10px;">
-        <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
+        <a href="{KO_FI_PAY_URL}" target="_self" style="text-decoration: none;">
             <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
                         color: white; 
                         padding: 15px 30px; 
@@ -326,12 +329,12 @@ elif st.session_state.portfolio:
     </div>
     """
     st.markdown(html_button, unsafe_allow_html=True)
-    st.caption("⚠️ *Ако сте отворили сайта през Facebook Messenger или Viber, моля кликнете на трите точки горе вдясно и изберете 'Отвори в Chrome', за да се зареди платежният прозорец безпроблемно.*")
+    st.caption("⚠️ *Забележка: След извършване на плащането в Stripe, използвайте бутона 'Назад' на браузъра, за да се върнете в портфолиото си и да отключите доклада чрез бутона по-долу.*")
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
         if st.button("🔓 Отключи AI Доклада (След потвърдено плащане)"):
-            st.info("🔄 Извличане на фундаментални показатели... Успешно!")
+            st.info("🔄 Извличане на фундаментални показатели...")
             try:
                 stock_info = tf.Ticker(comp_to_analyze).info
                 pe_ratio = stock_info.get('trailingPE', 'N/A')
