@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 from openai import OpenAI
 from supabase import create_client, Client
+import streamlit.components.v1 as components
 
 # ОСНОВНА НАСТРОЙКА НА СТРАНИЦАТА
 st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout="wide")
@@ -11,8 +12,8 @@ st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout=
 st.title("💰 AI Инвестиционен Портфолио Тракер")
 st.write("Следете активите си в реално време.")
 
-# 1. ТВОЯТ ОФИЦИАЛЕН STRIPE checkout ЛИНК ЗА ФИКСИРАНО ПЛАЩАНЕ ОТ €2.99
-STRIPE_PAY_URL = "https://buy.stripe.com/00w9AU9VEbR88qkgOTgfu00"
+# 1. ТВОЯТ ОФИЦИАЛЕН STRIPE ЛИНК ЗА ПЛАЩАНЕ
+STRIPE_PAY_URL = "https://stripe.com"
 
 # ВРЪЗКА С ОБЛАЧНАТА БАЗА ДАННИ SUPABASE
 try:
@@ -23,13 +24,13 @@ except:
     st.error("Липсват Supabase настройки в Secrets!")
     supabase = None
 
-# ПЪЛНА ПОПРАВКА НА OPENAI ИИ КЛИЕНТА (ЧИСТ СИНТАКСИС)
+# ЖИВИЯТ OPENAI ИИ КЛИЕНТ
 if "OPENAI_API_KEY" in st.secrets:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 else:
     client = None
 
-# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ (Google AdSense СТИЛ)
+# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ
 def render_ad_banner(banner_type="horizontal"):
     if banner_type == "horizontal":
         st.markdown("""
@@ -50,9 +51,15 @@ def render_ad_banner(banner_type="horizontal"):
         """, unsafe_allow_html=True)
 
 render_ad_banner("horizontal")
-# 2. ПОПРАВЕНА СИСТЕМА ЗА ТРАЕН СЪРВЪРЕН ВХОД (БЕЗ ИЗХВЪРЛЯНЕ ПРИ РЕФРЕШ)
+# 2. СКРИТ JAVASCRIPT КОМПОНЕНТ ЗА ТРАЙНО ЗАПОМНЯНЕ НА ТЕЛЕФОНА (LOCAL STORAGE)
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
+
+# Механизъм за улавяне на имейла от паметта на телефона
+js_receiver = st.text_input("js_state", label_visibility="collapsed", key="js_email_hidden")
+if js_receiver and st.session_state.user_email is None:
+    st.session_state.user_email = js_receiver
+    st.rerun()
 
 st.sidebar.header("👤 Потребителски Профил")
 
@@ -63,14 +70,42 @@ if st.session_state.user_email is None:
     if st.sidebar.button("🚀 Вход с Google"):
         if email_input and "@" in email_input:
             st.session_state.user_email = email_input
+            # Скрит скрипт, който записва имейла в паметта на браузъра трайно
+            components.html(f"""
+                <script>
+                    window.parent.localStorage.setItem('saved_user_email', '{email_input}');
+                </script>
+            """, height=0)
             st.sidebar.success("Успешен вход!")
             st.rerun()
         else:
             st.sidebar.error("Моля, въведете валиден имейл адрес.")
+            
+    # Автоматично прочитане при стартиране на сайта
+    components.html("""
+        <script>
+            var email = window.parent.localStorage.getItem('saved_user_email');
+            if (email) {
+                var inputs = window.parent.document.querySelectorAll('input');
+                for (var i = 0; i < inputs.length; i++) {
+                    if (inputs[i].getAttribute('aria-label') === 'js_state' || i === 0) {
+                        inputs[i].value = email;
+                        inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                        break;
+                    }
+                }
+            }
+        </script>
+    """, height=0)
 else:
     st.sidebar.success(f"🟢 Вписан профил: {st.session_state.user_email}")
     if st.sidebar.button("❌ Изход от профила"):
         st.session_state.user_email = None
+        components.html("""
+            <script>
+                window.parent.localStorage.removeItem('saved_user_email');
+            </script>
+        """, height=0)
         st.rerun()
 
 # 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
@@ -153,7 +188,7 @@ def add_asset_to_db(a_type, a_name, qty, p_eur=0.0, curr="USD", tick=""):
         try:
             data = {"user_email": st.session_state.user_email, "asset_type": a_type, "asset_name": a_name, "quantity": qty, "price_eur": p_eur, "input_currency": curr, "ticker": tick}
             supabase.table("user_portfolios").insert(data).execute()
-            st.sidebar.success("✅ Записано в облака успешно!")
+            st.sidebar.success("✅ Записано в облака!")
             st.rerun()
         except Exception as e:
             st.sidebar.error(f"Грешка: {e}")
@@ -168,7 +203,6 @@ elif asset_type == "БФБ (Българска Акция в EUR)" and st.sessio
     quantity = st.sidebar.number_input("Брой акции", min_value=0.0, value=10.0, step=1.0)
     manual_price = st.sidebar.number_input("Текуща цена (в EUR)", min_value=0.0, value=25.0, step=0.1)
     if st.sidebar.button("Добави БФБ Акция"): add_asset_to_db("Акции", f"{bg_name} (БФБ)", quantity, p_eur=manual_price, curr="EUR")
-
 elif asset_type == "ETF (Борсово търгуван фонд)" and st.session_state.user_email:
     etf_ticker = st.sidebar.text_input("Тикер на ETF (напр. VUAA.DE)", value="VUAA.DE").upper()
     quantity = st.sidebar.number_input("Количество ETF", min_value=0.0, value=5.0, step=1.0)
@@ -208,10 +242,6 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     cash_amount = st.sidebar.number_input(f"Сума", min_value=0.0, value=1000.0, step=100.0)
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
-st.sidebar.markdown("---")
-with st.sidebar:
-    render_ad_banner("sidebar")
-
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
     try:
@@ -222,6 +252,7 @@ def process_portfolio(target_currency):
 
     processed = []
     total_display_value = 0.0
+
     for asset in st.session_state.portfolio:
         price_in_original_currency = 0.0
         asset_currency = asset["input_currency"]
@@ -285,38 +316,28 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ (ФИКСИРАН ОФИЦИАЛЕН БУТОН ЗА МОБИЛНИ УСТРОЙСТВА)
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ОФИЦИАЛЕН ЗЕЛЕН СТРАМЛИТ ЛИНК-БУТОН (БЕЗ ЗАБИВАНЕ)
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     
-    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на каквито и да е финансови активи. Инвестирането крие риск от загуба на капитал.")
+    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на финансови активи.")
     
     st.write("За да отключите подробните ИИ доклади, е необходимо еднократно плащане от €2.99 през банковия ни шлюз:")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # ОФИЦИАЛЕН ЗЕЛЕН СТРАМЛИТ БУТОН - СИГУРНО ПРЕПРАЩАНЕ БЕЗ ЗАБИВАНЕ И СИВИ ЕКРАНИ
-    st.link_button(
-        "💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY", 
-        STRIPE_PAY_URL, 
-        use_container_width=True,
-        type="primary"
-    )
-    st.caption("💡 *След плащане в Stripe, използвайте бутона 'Назад' (Back) на Вашия телефон, за да се върнете в приложението и да отключите доклада чрез долния бутон.*")
+    # СИГУРЕН ОФИЦИАЛЕН ЗЕЛЕН БУТОН (АВТОМАТИЧНО Е ЗЕЛЕН В PRIMARY ТИП НА СТРАМЛИТ)
+    st.link_button("💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY", STRIPE_PAY_URL, use_container_width=True, type="primary")
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
-        
         if st.button("🔓 Отключи AI Доклада (След потвърдено плащане)"):
-            st.error("🔒 Достъпът е заключен! Системата очаква потвърждение на трансфера от Stripe. Моля, извършете плащането от зеления бутон по-горе, преди да отключите анализа.")
-            st.info("💡 Пример за показателите, които ще получите след отключване: P/E Ratio, Price-to-Book, Професионален ИИ доклад за растеж на компанията и финална присъда (BUY/SELL).")
+            st.error("🔒 Достъпът е заключен! Системата очаква потвърждение на трансфера от Stripe. Моля, извършете плащането от бутона по-горе.")
 
     elif ai_mode == "Търсене на подценени имоти в регион (Цяла България)":
         prem_province = st.selectbox("Избери Област за сканиране:", all_bg_provinces, key="prem_prov")
         prem_specific = st.text_input("Напишете конкретен град или квартал:", value=f"гр. {prem_province}", key="prem_spec")
-        
         if st.button("🔓 Отключи Имотния Доклад (След плащане)"):
-            st.error("🔒 Скенерът е заключен! Системата очаква плащане от €2.99 за този регион. Моля, кликнете на зеления бутон за плащане с карта.")
-
+            st.error("🔒 Скенерът е заключен! Системата очаква плащане от €2.99 за този регион.")
 
     # 8. СЕКЦИЯ ЗА ТРИЕНЕ
     st.markdown("---")
