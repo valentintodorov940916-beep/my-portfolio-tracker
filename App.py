@@ -61,7 +61,6 @@ render_ad_banner("horizontal")
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
-# Опит за автоматично прочитане на записана бисквитка от устройството
 saved_email = cookie_manager.get(cookie="user_google_email")
 if saved_email and st.session_state.user_email is None:
     st.session_state.user_email = saved_email
@@ -77,7 +76,6 @@ if st.session_state.user_email is None:
         if email_input and "@" in email_input:
             st.session_state.user_email = email_input
             if remember_me:
-                # Записване на бисквитка за 30 дни на устройството на потребителя
                 cookie_manager.set("user_google_email", email_input, max_age=2592000)
             st.sidebar.success(f"Добре дошли!")
             st.rerun()
@@ -87,7 +85,7 @@ else:
     st.sidebar.success(f"🟢 Вписан профил: {st.session_state.user_email}")
     if st.sidebar.button("❌ Изход от профила"):
         st.session_state.user_email = None
-        cookie_manager.delete("user_google_email") # Изтриване на бисквитката при изход
+        cookie_manager.delete("user_google_email")
         st.rerun()
 
 # 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
@@ -254,7 +252,7 @@ def process_portfolio(target_currency):
                 price_in_original_currency = hist['Close'].iloc[-1] if not hist.empty else 0.0
             except: price_in_original_currency = 0.0
         elif asset["type"] == "Метали":
-            price_in_original_currency = gold_price_per_oz_usd if asset["name"] == "Злато" else silver_price_per_oz_usd
+            price_in_original_currency = gold_price_per_oz_usd if asset["name"] == "Злаto" else silver_price_per_oz_usd
         elif asset["type"] == "Имоти":
             price_in_original_currency = asset["price_eur"]
         elif asset["type"] == "Кеш":
@@ -300,35 +298,38 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ИЗЧИСТЕН ПОПРАВЕН БУТОН ЗА HTML ВИЗУАЛИЗАЦИЯ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ МАГАЗИНА ТИ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
-    st.write("За да отключите реалните подробни доклади, е необходимо еднократно плащане от €2.99, което отива директно по Вашата банкова сметка.")
+    st.write("За да отключите подробните ИИ доклади, натиснете зеления бутон за сигурно плащане през Stripe:")
     
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
+    # ГОЛЯМ И ПОПРАВЕН ЗЕЛЕН БУТОН С ТВОЯ РЕАЛЕН МАГАЗИН ЛИНК
     html_button = f"""
-    <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
-        <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
-                    color: white; 
-                    padding: 14px 25px; 
-                    text-align: center; 
-                    border-radius: 8px; 
-                    font-weight: bold; 
-                    font-size: 16px; 
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                    margin-bottom: 25px;
-                    cursor: pointer;">
-            💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY
-        </div>
-    </a>
+    <div style="text-align: center; margin-bottom: 10px;">
+        <a href="{KO_FI_PAY_URL}" target="_blank" style="text-decoration: none;">
+            <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        border-radius: 8px; 
+                        font-weight: bold; 
+                        font-size: 16px; 
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        display: inline-block;
+                        cursor: pointer;">
+                💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY
+            </div>
+        </a>
+    </div>
     """
     st.markdown(html_button, unsafe_allow_html=True)
+    st.caption("⚠️ *Ако сте отворили сайта през Facebook Messenger или Viber, моля кликнете на трите точки горе вдясно и изберете 'Отвори в Chrome', за да се зареди платежният прозорец безпроблемно.*")
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
         if st.button("🔓 Отключи AI Доклада (След потвърдено плащане)"):
-            st.info("🔄 Извличане на фундаментални показатели от пазара...")
+            st.info("🔄 Извличане на фундаментални показатели... Успешно!")
             try:
                 stock_info = tf.Ticker(comp_to_analyze).info
                 pe_ratio = stock_info.get('trailingPE', 'N/A')
@@ -343,7 +344,7 @@ elif st.session_state.portfolio:
             st.write(f"### 📊 Fundаментални показатели за **{comp_to_analyze}**")
             st.table(pd.DataFrame({"Показател": ["P/E", "P/B", "P/S", "EPS", "Марж"], "Стойност": [pe_ratio, pb_ratio, ps_ratio, eps, profit_margin]}))
 
-            prompt = f"Направи дълбок фундаментален анализ на български за {comp_to_analyze} на база: P/E: {pe_ratio}, P/B: {pb_ratio}, P/S: {ps_ratio}, EPS: {eps}, Margин: {profit_margin}. Раздели го на 4 сериозни финансови части с крайна присъда."
+            prompt = f"Направи дълбок фундаментален анализ на български за {comp_to_analyze} на база: P/E: {pe_ratio}, P/B: {pb_ratio}, P/S: {ps_ratio}, EPS: {eps}, Марж: {profit_margin}. Раздели го на 4 сериозни финансови части с крайна присъда."
             
             if client:
                 with st.spinner("ИИ съставя доклада..."):
