@@ -12,8 +12,8 @@ st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout=
 st.title("💰 AI Инвестиционен Портфолио Тракер")
 st.write("Следете активите си в реално време.")
 
-# 1. ТВОЯТ ОФИЦИАЛЕН STRIPE ЛИНК ЗА ПЛАЩАНЕ
-STRIPE_PAY_URL = "https://stripe.com"
+# 1. ТВОЯТ ОФИЦИАЛЕН STRIPE CHECKOUT ЛИНК ЗА ФИКСИРАНО ПЛАЩАНЕ ОТ €2.99
+STRIPE_PAY_URL = "https://buy.stripe.com/00w9AU9VEbR88qkgOTgfu00"
 
 # ВРЪЗКА С ОБЛАЧНАТА БАЗА ДАННИ SUPABASE
 try:
@@ -30,7 +30,7 @@ if "OPENAI_API_KEY" in st.secrets:
 else:
     client = None
 
-# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ
+# ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ (Google AdSense СТИЛ)
 def render_ad_banner(banner_type="horizontal"):
     if banner_type == "horizontal":
         st.markdown("""
@@ -51,7 +51,7 @@ def render_ad_banner(banner_type="horizontal"):
         """, unsafe_allow_html=True)
 
 render_ad_banner("horizontal")
-# 2. СКРИТ JAVASCRIPT КОМПОНЕНТ ЗА ТРАЙНО ЗАПОМНЯНЕ НА ТЕЛЕФОНА (LOCAL STORAGE)
+# 2. JAVASCRIPT КОМПОНЕНТ ЗА ТРАЙНО ЗАПОМНЯНЕ НА ТЕЛЕФОНА (LOCAL STORAGE)
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
@@ -188,7 +188,7 @@ def add_asset_to_db(a_type, a_name, qty, p_eur=0.0, curr="USD", tick=""):
         try:
             data = {"user_email": st.session_state.user_email, "asset_type": a_type, "asset_name": a_name, "quantity": qty, "price_eur": p_eur, "input_currency": curr, "ticker": tick}
             supabase.table("user_portfolios").insert(data).execute()
-            st.sidebar.success("✅ Записано в облака!")
+            st.sidebar.success("✅ Записано в облака успешно!")
             st.rerun()
         except Exception as e:
             st.sidebar.error(f"Грешка: {e}")
@@ -203,44 +203,6 @@ elif asset_type == "БФБ (Българска Акция в EUR)" and st.sessio
     quantity = st.sidebar.number_input("Брой акции", min_value=0.0, value=10.0, step=1.0)
     manual_price = st.sidebar.number_input("Текуща цена (в EUR)", min_value=0.0, value=25.0, step=0.1)
     if st.sidebar.button("Добави БФБ Акция"): add_asset_to_db("Акции", f"{bg_name} (БФБ)", quantity, p_eur=manual_price, curr="EUR")
-elif asset_type == "ETF (Борсово търгуван фонд)" and st.session_state.user_email:
-    etf_ticker = st.sidebar.text_input("Тикер на ETF (напр. VUAA.DE)", value="VUAA.DE").upper()
-    quantity = st.sidebar.number_input("Количество ETF", min_value=0.0, value=5.0, step=1.0)
-    etf_curr = st.sidebar.selectbox("Валута", ["EUR", "USD"])
-    if st.sidebar.button("Добави ETF"): add_asset_to_db("ETFs", etf_ticker, quantity, curr=etf_curr, tick=etf_ticker)
-
-elif asset_type == "Криптовалута" and st.session_state.user_email:
-    crypto_coin = st.sidebar.selectbox("Изберете Криптовалута", ["BTC", "ETH", "SOL", "BNB"])
-    crypto_ticker = f"{crypto_coin}-USD"
-    quantity = st.sidebar.number_input("Количество монети", min_value=0.0, value=0.1, step=0.01, format="%.4f")
-    if st.sidebar.button("Добави Крипто"): add_asset_to_db("Крипто", crypto_coin, quantity, curr="USD", tick=crypto_ticker)
-
-elif asset_type == "Благородни Метали (Унции)" and st.session_state.user_email:
-    metal_type = st.sidebar.selectbox("Метал", ["Злато", "Сребро"])
-    metal_qty = st.sidebar.number_input("Тегло в Тройунции (oz)", min_value=0.0, value=1.0, step=0.1)
-    if st.sidebar.button("Добави Метал"): add_asset_to_db("Метали", metal_type, metal_qty, curr="USD")
-
-elif asset_type == "Недвижим Имот / Земя (AI Оценка)" and st.session_state.user_email:
-    prop_category = st.sidebar.selectbox("Тип на имота", ["Двустаен", "Тристаен", "Едностаен", "Къща", "Офис", "Земеделска земя"])
-    land_cat = ""
-    if prop_category == "Земеделска земя":
-        chosen_prov, specific_input = "Всички", "Земеделска земя"
-        size = st.sidebar.number_input("Площ в Декари", min_value=0.0, value=10.0, step=1.0)
-        land_cat = st.sidebar.selectbox("Категория", ["1-ва до 3-та категория (Най-плодородна)", "4-та до 6-та категория (Средна)", "7-ма до 10-та категория (Ниска/Пасища)"])
-    else:
-        chosen_prov = st.sidebar.selectbox("Избери Област", all_bg_provinces)
-        specific_input = st.sidebar.text_input("Град / Село / Курорт:", value=f"гр. {chosen_prov}")
-        size = st.sidebar.number_input("Квадратура (кв.м.)", min_value=0.0, value=75.0, step=5.0)
-    if st.sidebar.button("🤖 Изчисли пазарна цена и добави"):
-        calculated_price_eur = ai_property_valuation(prop_category, chosen_prov, specific_input, size, land_cat)
-        desc = f"{prop_category} ({specific_input}) - {size} ед."
-        add_asset_to_db("Имоти", desc, 1.0, p_eur=calculated_price_eur, curr="EUR")
-
-elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
-    cash_currency = st.sidebar.selectbox("Валута на кеша", ["EUR", "USD"])
-    cash_name = st.sidebar.text_input("Банка / Описание", value="Револют")
-    cash_amount = st.sidebar.number_input(f"Сума", min_value=0.0, value=1000.0, step=100.0)
-    if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
@@ -252,7 +214,6 @@ def process_portfolio(target_currency):
 
     processed = []
     total_display_value = 0.0
-
     for asset in st.session_state.portfolio:
         price_in_original_currency = 0.0
         asset_currency = asset["input_currency"]
@@ -316,17 +277,18 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ОФИЦИАЛЕН ЗЕЛЕН СТРАМЛИТ ЛИНК-БУТОН (БЕЗ ЗАБИВАНЕ)
+    # 7. AI REAL PREMIUM ФУНКЦИИ (ЗЕЛЕН БУТОН С ТВОЯ ЗАКЛЮЧЕН STRIPE ЛИНК)
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     
-    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на финансови активи.")
+    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на каквито и да е финансови активи. Инвестирането крие риск от загуба на капитал.")
     
     st.write("За да отключите подробните ИИ доклади, е необходимо еднократно плащане от €2.99 през банковия ни шлюз:")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # СИГУРЕН ОФИЦИАЛЕН ЗЕЛЕН БУТОН (АВТОМАТИЧНО Е ЗЕЛЕН В PRIMARY ТИП НА СТРАМЛИТ)
-    st.link_button("💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY", STRIPE_PAY_URL, use_container_width=True, type="primary")
+    # ОФИЦИАЛНИЯТ ST.LINK_BUTTON — СЕГА ПРАЩА ДИРЕКТНО КЪМ ТВОЯ STRIPE CHECKOUT
+    st.link_button("💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY / REVOLUT", STRIPE_PAY_URL, use_container_width=True, type="primary")
+    st.caption("💡 *След плащане в Stripe, натиснете бутона 'Назад' (Back) на Вашия телефон, за да се върнете в приложението и да отключите доклада чрез долния бутон.*")
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
