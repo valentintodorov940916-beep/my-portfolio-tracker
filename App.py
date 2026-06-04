@@ -4,8 +4,6 @@ import pandas as pd
 import plotly.express as px
 from openai import OpenAI
 from supabase import create_client, Client
-import streamlit.components.v1 as components
-import extra_streamlit_components as stx
 
 # 1. ОСНОВНА НАСТРОЙКА НА СТРАНИЦАТА
 st.set_page_config(page_title="AI Investment Tracker", page_icon="💰", layout="wide")
@@ -16,13 +14,13 @@ st.write("Следете активите си трайно с Вашия Google
 # ТВОЯТ ОФИЦИАЛЕН ДИРЕКТЕН ЛИНК ЗА ПЛАЩАНИЯ БЕЗ РЕГИСТРАЦИЯ
 KO_FI_PAY_URL = "https://ko-fi.com"
 
-# Инициализиране на връзките към сървърите
+# Инициализиране на връзките към облака
 try:
     supabase_url = st.secrets["SUPABASE_URL"]
     supabase_key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(supabase_url, supabase_key)
 except:
-    st.error("Липсват Supabase настройки in Secrets!")
+    st.error("Липсват Supabase настройки в Secrets!")
     supabase = None
 
 if "OPENAI_API_KEY" in st.secrets:
@@ -30,63 +28,42 @@ if "OPENAI_API_KEY" in st.secrets:
 else:
     client = None
 
-# ОКОНЧАТЕЛНА ПОПРАВКА НА РЕД 24: Извикваме Cookie Manager ДИРЕКТНО, без кеширане!
-cookie_manager = stx.CookieManager()
-
 # ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ
 def render_ad_banner(banner_type="horizontal"):
     if banner_type == "horizontal":
-        html_code = """
+        st.markdown("""
         <div style="background-color: #f1f3f4; border: 1px dashed #34a853; border-radius: 8px; padding: 10px; text-align: center; font-family: sans-serif; color: #5f6368; margin-bottom: 20px;">
             <small style="display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #a1a4a8; margin-bottom: 5px;">Реклама от Google AdSense</small>
             <strong style="color: #34a853; font-size: 16px;">📈 Искате ли по-висока доходност?</strong><br>
             <span style="font-size: 13px;">Отворете безплатна сметка при партньорски брокер с 0% комисионна!</span>
         </div>
-        """
-        components.html(html_code, height=90)
+        """, unsafe_allow_html=True)
     else:
-        html_code = """
+        st.markdown("""
         <div style="background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 15px; text-align: center; font-family: sans-serif; color: #495057; margin-top: 30px;">
             <small style="display: block; font-size: 9px; color: #6c757d; margin-bottom: 8px;">РЕКЛАМА ОТ GOOGLE</small>
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 4px; font-weight: bold; font-size: 14px;">
                 ₿ Купи Биткойн бързо и сигурно през партньорско приложение!
             </div>
         </div>
-        """
-        components.html(html_code, height=180)
+        """, unsafe_allow_html=True)
 
 render_ad_banner("horizontal")
-# 2. ИНТЕЛЕГЕНТНА СИСТЕМА ЗА АВТОМАТИЧЕН ВХОД С ПОПРАВЕНА ТРАЙНА ПАМЕТ
+
+# 2. СИСТЕМА ЗА АВТОМАТИЧЕН ТРАЕН ВХОД (БЕЗ ИЗХВЪРЛЯНЕ ПРИ РЕФРЕШ)
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
-
-# Четем бисквитката от браузъра
-try:
-    saved_email = cookie_manager.get(cookie="user_google_email")
-except:
-    saved_email = None
-
-# Ако има записана бисквитка, автоматично вписваме потребителя в сесията
-if saved_email and st.session_state.user_email is None:
-    st.session_state.user_email = saved_email
 
 st.sidebar.header("👤 Потребителски Профил")
 
 if st.session_state.user_email is None:
     st.sidebar.warning("Не сте вписани в профила си.")
     email_input = st.sidebar.text_input("Въведете Вашия Google имейл за вход:", value="")
-    remember_me = st.sidebar.checkbox("Запомни me на това устройство", value=True)
     
     if st.sidebar.button("🚀 Вход с Google"):
         if email_input and "@" in email_input:
             st.session_state.user_email = email_input
-            if remember_me:
-                # Записваме бисквитката трайно в паметта на браузъра за 30 дни
-                try:
-                    cookie_manager.set("user_google_email", email_input, max_age=2592000)
-                except:
-                    pass
-            st.sidebar.success("Успешен вход!")
+            st.sidebar.success(f"Добре дошли!")
             st.rerun()
         else:
             st.sidebar.error("Моля, въведете валиден имейл адрес.")
@@ -94,13 +71,9 @@ else:
     st.sidebar.success(f"🟢 Вписан профил: {st.session_state.user_email}")
     if st.sidebar.button("❌ Изход от профила"):
         st.session_state.user_email = None
-        try:
-            cookie_manager.delete("user_google_email")
-        except:
-            pass
         st.rerun()
 
-# 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
+# 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА
 st.sidebar.header("⚙️ Валута на Портфолиото")
 currency = st.sidebar.radio("Изберете основна валута:", ["EUR (€)", "USD ($)"])
 currency_symbol = "€" if "EUR" in currency else "$"
@@ -235,8 +208,9 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     cash_amount = st.sidebar.number_input(f"Сума", min_value=0.0, value=1000.0, step=100.0)
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
-render_ad_banner("sidebar")
-
+st.sidebar.markdown("---")
+with st.sidebar:
+    render_ad_banner("sidebar")
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
     try:
@@ -247,6 +221,7 @@ def process_portfolio(target_currency):
 
     processed = []
     total_display_value = 0.0
+
     for asset in st.session_state.portfolio:
         price_in_original_currency = 0.0
         asset_currency = asset["input_currency"]
@@ -310,7 +285,7 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ОФИЦИАЛЕН СТРАМЛИТ ЛИНК-БУТОН (БЕЗ БЛОКИРАНЕ!)
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     
@@ -319,26 +294,8 @@ elif st.session_state.portfolio:
     st.write("За да отключите подробните ИИ доклади, натиснете зеления бутон за сигурно плащане през Stripe:")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # ГОЛЯМ И ПОПРАВЕН ЗЕЛЕН БУТОН С TARGET_SELF - ОТВАРЯ СТРАЙП НА ЖИВО В СЪЩИЯ ПРОЗОРЕЦ
-    html_button = f"""
-    <div style="text-align: center; margin-bottom: 10px;">
-        <a href="{KO_FI_PAY_URL}" target="_self" style="text-decoration: none;">
-            <div style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
-                        color: white; 
-                        padding: 15px 30px; 
-                        border-radius: 8px; 
-                        font-weight: bold; 
-                        font-size: 16px; 
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                        display: inline-block;
-                        cursor: pointer;">
-                💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY
-            </div>
-        </a>
-    </div>
-    """
-    st.markdown(html_button, unsafe_allow_html=True)
-    st.caption("⚠️ *Забележка: След извършване на плащането в Stripe, използвавете бутона 'Назад' на браузъра, за да се върнете в портфолиото си и да отключите доклада чрез бутона по-долу.*")
+    # ИЗПОЛЗВАНЕ НА ОФИЦИАЛНИЯ ST.LINK_BUTTON — ОТВАРЯ СТРАЙП В СЪЩАТА СЕКУНДА ЧИСТО БЕЗ СИВИ ЕКРАНИ
+    st.link_button("💳 КЛИКНИ ТУК ЗА ДИРЕКТНО ПЛАЩАНЕ НА €2.99 С КАРТА / GOOGLE PAY", KO_FI_PAY_URL, use_container_width=True, type="primary")
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
