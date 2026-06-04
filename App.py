@@ -16,7 +16,7 @@ st.write("Следете активите си трайно с Вашия Google
 # ТВОЯТ ОФИЦИАЛЕН ДИРЕКТЕН ЛИНК ЗА ПЛАЩАНИЯ БЕЗ РЕГИСТРАЦИЯ
 KO_FI_PAY_URL = "https://ko-fi.com"
 
-# Инициализиране на връзките
+# Инициализиране на връзките към сървърите
 try:
     supabase_url = st.secrets["SUPABASE_URL"]
     supabase_key = st.secrets["SUPABASE_KEY"]
@@ -30,8 +30,12 @@ if "OPENAI_API_KEY" in st.secrets:
 else:
     client = None
 
-# Инициализиране на мениджъра за бисквитки (Cookies)
-cookie_manager = stx.CookieManager()
+# ПОПРАВКА НА РЕД 24: Правилно стартиране на Cookie Manager компонента
+@st.cache_resource
+def get_cookie_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_cookie_manager()
 
 # ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ
 def render_ad_banner(banner_type="horizontal"):
@@ -56,16 +60,19 @@ def render_ad_banner(banner_type="horizontal"):
         components.html(html_code, height=180)
 
 render_ad_banner("horizontal")
-# 2. ПОПРАВЕНА ИНТЕЛЕГЕНТНА СИСТЕМА ЗА АВТОМАТИЧЕН ВХОД (COOKIES)
+# 2. ИНТЕЛЕГЕНТНА СИСТЕМА ЗА АВТОМАТИЧЕН ВХОД С ПОПРАВЕНА ТРАЙНА ПАМЕТ
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 
-# Извличане на бисквитката с подсигуряване при рефреш
-saved_email = cookie_manager.get(cookie="user_google_email")
+# Четем бисквитката от браузъра
+try:
+    saved_email = cookie_manager.get(cookie="user_google_email")
+except:
+    saved_email = None
 
+# Ако има записана бисквитка, автоматично вписваме потребителя в сесията
 if saved_email and st.session_state.user_email is None:
     st.session_state.user_email = saved_email
-    st.rerun()
 
 st.sidebar.header("👤 Потребителски Профил")
 
@@ -78,9 +85,12 @@ if st.session_state.user_email is None:
         if email_input and "@" in email_input:
             st.session_state.user_email = email_input
             if remember_me:
-                # Записване на бисквитката трайно в браузъра за 30 дни
-                cookie_manager.set("user_google_email", email_input, max_age=2592000)
-            st.sidebar.success(f"Добре дошли!")
+                # Записваме бисквитката трайно в паметта на браузъра за 30 дни
+                try:
+                    cookie_manager.set("user_google_email", email_input, max_age=2592000)
+                except:
+                    pass
+            st.sidebar.success("Успешен вход!")
             st.rerun()
         else:
             st.sidebar.error("Моля, въведете валиден имейл адрес.")
@@ -88,7 +98,10 @@ else:
     st.sidebar.success(f"🟢 Вписан профил: {st.session_state.user_email}")
     if st.sidebar.button("❌ Изход от профила"):
         st.session_state.user_email = None
-        cookie_manager.delete("user_google_email")
+        try:
+            cookie_manager.delete("user_google_email")
+        except:
+            pass
         st.rerun()
 
 # 3. МЕНЮ ЗА НАСТРОЙКА НА ВАЛУТА С АВТОМАТИЧЕН КУРС
@@ -171,7 +184,7 @@ def add_asset_to_db(a_type, a_name, qty, p_eur=0.0, curr="USD", tick=""):
         try:
             data = {"user_email": st.session_state.user_email, "asset_type": a_type, "asset_name": a_name, "quantity": qty, "price_eur": p_eur, "input_currency": curr, "ticker": tick}
             supabase.table("user_portfolios").insert(data).execute()
-            st.sidebar.success("✅ Записано в облака успешно!")
+            st.sidebar.success("✅ Записано в облака!")
             st.rerun()
         except Exception as e:
             st.sidebar.error(f"Грешка: {e}")
@@ -301,16 +314,16 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ПОПРАВЕН БУТОН ЗА СЪЩИЯ ПРОЗОРЕЦ (TARGET_SELF)
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ МАГАЗИНА ТИ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     
-    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на каквито и да е финансови активи.")
+    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на каквито и да е финансови активи. Инвестирането крие риск от загуба на капитал.")
     
     st.write("За да отключите подробните ИИ доклади, натиснете зеления бутон за сигурно плащане през Stripe:")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # ПОПРАВЕН БУТОН - С `target="_self"` ЗА ПРЕНАСОЧВАНЕ В СЪЩИЯ ПРОЗОРЕЦ БЕЗ БЛОКИРАНЕ
+    # ПОПРАВЕН БУТОН С TARGET_SELF - ПРЕМАХВА БЛОКИРАНЕТО НА МОБИЛНИТЕ БРАУЗЪРИ
     html_button = f"""
     <div style="text-align: center; margin-bottom: 10px;">
         <a href="{KO_FI_PAY_URL}" target="_self" style="text-decoration: none;">
