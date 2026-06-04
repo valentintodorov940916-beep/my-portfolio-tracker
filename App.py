@@ -22,7 +22,7 @@ try:
     supabase_key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(supabase_url, supabase_key)
 except:
-    st.error("Липсват Supabase настройки в Secrets!")
+    st.error("Липсват Supabase настройки in Secrets!")
     supabase = None
 
 if "OPENAI_API_KEY" in st.secrets:
@@ -30,12 +30,8 @@ if "OPENAI_API_KEY" in st.secrets:
 else:
     client = None
 
-# ПОПРАВКА НА РЕД 24: Правилно стартиране на Cookie Manager компонента
-@st.cache_resource
-def get_cookie_manager():
-    return stx.CookieManager()
-
-cookie_manager = get_cookie_manager()
+# ОКОНЧАТЕЛНА ПОПРАВКА НА РЕД 24: Извикваме Cookie Manager ДИРЕКТНО, без кеширане!
+cookie_manager = stx.CookieManager()
 
 # ФУНКЦИЯ ЗА ГЕНЕРИРАНЕ НА РЕКЛАМНИ БАНЕРИ
 def render_ad_banner(banner_type="horizontal"):
@@ -79,7 +75,7 @@ st.sidebar.header("👤 Потребителски Профил")
 if st.session_state.user_email is None:
     st.sidebar.warning("Не сте вписани в профила си.")
     email_input = st.sidebar.text_input("Въведете Вашия Google имейл за вход:", value="")
-    remember_me = st.sidebar.checkbox("Запомни ме на това устройство", value=True)
+    remember_me = st.sidebar.checkbox("Запомни me на това устройство", value=True)
     
     if st.sidebar.button("🚀 Вход с Google"):
         if email_input and "@" in email_input:
@@ -184,7 +180,7 @@ def add_asset_to_db(a_type, a_name, qty, p_eur=0.0, curr="USD", tick=""):
         try:
             data = {"user_email": st.session_state.user_email, "asset_type": a_type, "asset_name": a_name, "quantity": qty, "price_eur": p_eur, "input_currency": curr, "ticker": tick}
             supabase.table("user_portfolios").insert(data).execute()
-            st.sidebar.success("✅ Записано в облака!")
+            st.sidebar.success("✅ Записано в облака успешно!")
             st.rerun()
         except Exception as e:
             st.sidebar.error(f"Грешка: {e}")
@@ -240,6 +236,7 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
 render_ad_banner("sidebar")
+
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
     try:
@@ -250,7 +247,6 @@ def process_portfolio(target_currency):
 
     processed = []
     total_display_value = 0.0
-
     for asset in st.session_state.portfolio:
         price_in_original_currency = 0.0
         asset_currency = asset["input_currency"]
@@ -314,7 +310,7 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ МАГАЗИНА ТИ
+    # 7. AI REAL PREMIUM ФУНКЦИИ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
     
@@ -323,7 +319,7 @@ elif st.session_state.portfolio:
     st.write("За да отключите подробните ИИ доклади, натиснете зеления бутон за сигурно плащане през Stripe:")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
-    # ПОПРАВЕН БУТОН С TARGET_SELF - ПРЕМАХВА БЛОКИРАНЕТО НА МОБИЛНИТЕ БРАУЗЪРИ
+    # ГОЛЯМ И ПОПРАВЕН ЗЕЛЕН БУТОН С TARGET_SELF - ОТВАРЯ СТРАЙП НА ЖИВО В СЪЩИЯ ПРОЗОРЕЦ
     html_button = f"""
     <div style="text-align: center; margin-bottom: 10px;">
         <a href="{KO_FI_PAY_URL}" target="_self" style="text-decoration: none;">
@@ -342,7 +338,7 @@ elif st.session_state.portfolio:
     </div>
     """
     st.markdown(html_button, unsafe_allow_html=True)
-    st.caption("⚠️ *Забележка: След извършване на плащането в Stripe, използвайте бутона 'Назад' на браузъра, за да се върнете в портфолиото си и да отключите доклада чрез бутона по-долу.*")
+    st.caption("⚠️ *Забележка: След извършване на плащането в Stripe, използвавете бутона 'Назад' на браузъра, за да се върнете в портфолиото си и да отключите доклада чрез бутона по-долу.*")
     
     if ai_mode == "Дълбок ИИ фундаментален анализ (Акции)":
         comp_to_analyze = st.text_input("Въведете тикер за анализ (напр. AAPL, TSLA):", value="AAPL").upper()
