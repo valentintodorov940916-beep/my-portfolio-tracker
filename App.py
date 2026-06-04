@@ -56,7 +56,6 @@ def render_ad_banner(banner_type="horizontal"):
         components.html(html_code, height=180)
 
 render_ad_banner("horizontal")
-
 # 2. АВТОМАТИЧНА СИСТЕМА ЗА ТРАЙНО ЗАПАЗВАНЕ НА ВХОДА (COOKIES)
 if 'user_email' not in st.session_state:
     st.session_state.user_email = None
@@ -103,6 +102,7 @@ def get_eur_usd_rate():
 
 eur_to_usd = get_eur_usd_rate()
 usd_to_eur = 1.0 / eur_to_usd
+
 # 4. СПИСЪК СЪС ВСИЧКИ 28 ОБЛАСТИ В БЪЛГАРИЯ И AI ОЦЕНИТЕЛ НА ИМОТИ
 all_bg_provinces = [
     "Благоевград", "Бургас", "Варна", "Велико Търново", "Видин", "Враца", 
@@ -134,7 +134,6 @@ def ai_property_valuation(prop_type, province, specific_loc, size, category=""):
         if "сел" in specific_loc.lower(): price_per_meter *= 0.5
         elif "курорт" in specific_loc.lower() or "к.к." in specific_loc.lower(): price_per_meter *= 1.3
         return price_per_meter * size
-
 def load_user_portfolio_from_db():
     if supabase and st.session_state.user_email:
         try:
@@ -224,6 +223,7 @@ elif asset_type == "Кеш / Депозит" and st.session_state.user_email:
     if st.sidebar.button("Добави Кеш"): add_asset_to_db("Кеш", f"{cash_name} ({cash_currency})", cash_amount, curr=cash_currency)
 
 render_ad_banner("sidebar")
+
 # 5. ИЗЧИСЛЯВАНЕ НА ЦЕНИТЕ В РЕАЛНО ВРЕМЕ
 def process_portfolio(target_currency):
     try:
@@ -234,7 +234,6 @@ def process_portfolio(target_currency):
 
     processed = []
     total_display_value = 0.0
-
     for asset in st.session_state.portfolio:
         price_in_original_currency = 0.0
         asset_currency = asset["input_currency"]
@@ -252,7 +251,7 @@ def process_portfolio(target_currency):
                 price_in_original_currency = hist['Close'].iloc[-1] if not hist.empty else 0.0
             except: price_in_original_currency = 0.0
         elif asset["type"] == "Метали":
-            price_in_original_currency = gold_price_per_oz_usd if asset["name"] == "Злаto" else silver_price_per_oz_usd
+            price_in_original_currency = gold_price_per_oz_usd if asset["name"] == "Злато" else silver_price_per_oz_usd
         elif asset["type"] == "Имоти":
             price_in_original_currency = asset["price_eur"]
         elif asset["type"] == "Кеш":
@@ -298,11 +297,14 @@ elif st.session_state.portfolio:
             st.plotly_chart(fig_sub, use_container_width=True)
             st.dataframe(df_sub[["Aktив", "Количество", "Ед. Цена", val_column]], use_container_width=True)
 
-    # 7. AI REAL PREMIUM ФУНКЦИИ С ВРЪЗКА КЪМ МАГАЗИНА ТИ
+    # 7. AI REAL PREMIUM ФУНКЦИИ С ПРАВЕН ИЗВЕСТИЕ И ДИРЕКТЕН БУТОН ЗА HTML ПЛАЩАНЕ
     st.markdown("---")
     st.header("🧠 AI Premium Център — Анализи срещу €2.99")
-    st.write("За да отключите подробните ИИ доклади, натиснете зеления бутон за сигурно плащане през Stripe:")
     
+    # ЗАДЪЛЖИТЕЛЕН ПРАВЕН ОТКАЗ ОТ ОТГОВОРНОСТ (DISCLAIMER)
+    st.warning("⚠️ **Правно изявление (Disclaimer):** Предоставените анализи, пазарни коефициенти и имотни оценки имат единствено информативна и образователна цел. Те НЕ представляват индивидуален финансов съвет, инвестиционна препоръка или подкана за покупка/продажба на каквито и да е финансови активи и недвижими имоти. Инвестирането крие риск от загуба на капитал.")
+    
+    st.write("За да отключите подробните ИИ доклади, натиснете зеления бутон за сигурно плащане през Stripe:")
     ai_mode = st.selectbox("Изберете тип премиум услуга:", ["Дълбок ИИ фундаментален анализ (Акции)", "Търсене на подценени имоти в регион (Цяла България)"])
     
     # ГОЛЯМ И ПОПРАВЕН ЗЕЛЕН БУТОН С ТВОЯ РЕАЛЕН МАГАЗИН ЛИНК
